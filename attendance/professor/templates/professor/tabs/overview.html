@@ -1,4 +1,31 @@
 <div style="display: flex; flex-direction: column; gap: 24px;">
+    <!-- Quick Stats Grid (at top like student view) -->
+    <div class="stats-grid">
+        <div class="stat-card stat-card-blue">
+            <div class="stat-top-row">
+                <div class="stat-icon">👥</div>
+                <span class="stat-number">{{ total_students }}</span>
+            </div>
+            <span class="stat-label">Enrolled Students</span>
+        </div>
+
+        <div class="stat-card stat-card-green">
+            <div class="stat-top-row">
+                <div class="stat-icon">📊</div>
+                <span class="stat-number">{{ attendance_rate|default:"0" }}%</span>
+            </div>
+            <span class="stat-label">Avg Attendance</span>
+        </div>
+
+        <div class="stat-card stat-card-amber">
+            <div class="stat-top-row">
+                <div class="stat-icon">📅</div>
+                <span class="stat-number">{{ total_sessions }}</span>
+            </div>
+            <span class="stat-label">Sessions Held</span>
+        </div>
+    </div>
+
     <!-- Class Information Card -->
     <div class="card">
         <div class="card-header">
@@ -45,27 +72,6 @@
                     </div>
                 </div>
             </div>
-        </div>
-    </div>
-
-    <!-- Quick Stats Grid -->
-    <div class="stats-grid">
-        <div class="stat-card stat-card-blue">
-            <div class="stat-icon">👥</div>
-            <p class="stat-number">{{ total_students }}</p>
-            <p class="stat-label">Total Students</p>
-        </div>
-
-        <div class="stat-card stat-card-amber">
-            <div class="stat-icon">🔔</div>
-            <p class="stat-number">{{ announcements.count }}</p>
-            <p class="stat-label">Announcements</p>
-        </div>
-
-        <div class="stat-card stat-card-green">
-            <div class="stat-icon">📅</div>
-            <p class="stat-number">{{ total_sessions }}</p>
-            <p class="stat-label">Sessions Held</p>
         </div>
     </div>
 </div>

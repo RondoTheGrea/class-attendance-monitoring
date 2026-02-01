@@ -1,5 +1,5 @@
 from django.shortcuts import render, redirect
-from django.contrib.auth import authenticate, login
+from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.forms import AuthenticationForm
 from django.contrib.auth.models import Group
 
@@ -7,6 +7,13 @@ from .forms import StudentSignUpForm, ProfessorSignUpForm
 
 
 from django.contrib import messages
+
+
+def logout_view(request):
+    """Log out the user and redirect to home page."""
+    logout(request)
+    return redirect('home')
+
 
 def home(request):
     context = {}

@@ -11,6 +11,9 @@ from .forms import JoinClassForm
 @login_required
 def dashboard(request):
     """Student dashboard showing enrolled classes"""
+    # Get active tab from query parameter (defaults to 'classes')
+    active_tab = request.GET.get('tab', 'classes')
+    
     # Get all classes the student is enrolled in
     enrollments = StudentClassEnrollment.objects.filter(student=request.user).select_related('class_obj')
     enrolled_classes = [enrollment.class_obj for enrollment in enrollments]
@@ -39,6 +42,7 @@ def dashboard(request):
     
     context = {
         'classes': classes_with_stats,
+        'active_tab': active_tab,
     }
     return render(request, 'student/dashboard.html', context)
 

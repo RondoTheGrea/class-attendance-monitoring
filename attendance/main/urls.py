@@ -5,6 +5,9 @@ urlpatterns = [
     # Landing page where user chooses role (student/professor)
     path('', views.home, name='home'),
 
+    # Logout
+    path('logout/', views.logout_view, name='logout'),
+
     # Authentication for students
     path('login/student/', views.student_login, name='student_login'),
     path('signup/student/', views.student_signup, name='student_signup'),

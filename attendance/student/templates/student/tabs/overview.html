@@ -3,21 +3,27 @@
     <!-- Quick Stats Grid -->
     <div class="stats-grid">
         <div class="stat-card stat-card-green">
-            <div class="stat-icon">✅</div>
-            <p class="stat-number">{{ total_attendance }}</p>
-            <p class="stat-label">Attendance Records</p>
+            <div class="stat-top-row">
+                <div class="stat-icon">✅</div>
+                <span class="stat-number">{{ total_attendance }}</span>
+            </div>
+            <span class="stat-label">Attendance Records</span>
         </div>
 
         <div class="stat-card stat-card-amber">
-            <div class="stat-icon">🔔</div>
-            <p class="stat-number">{{ announcements.count }}</p>
-            <p class="stat-label">Announcements</p>
+            <div class="stat-top-row">
+                <div class="stat-icon">🔔</div>
+                <span class="stat-number">{{ announcements.count }}</span>
+            </div>
+            <span class="stat-label">Announcements</span>
         </div>
 
         <div class="stat-card stat-card-blue">
-            <div class="stat-icon">📅</div>
-            <p class="stat-number">{{ schedules.count }}</p>
-            <p class="stat-label">Weekly Schedules</p>
+            <div class="stat-top-row">
+                <div class="stat-icon">📅</div>
+                <span class="stat-number">{{ schedules.count }}</span>
+            </div>
+            <span class="stat-label">Weekly Schedules</span>
         </div>
     </div>
 

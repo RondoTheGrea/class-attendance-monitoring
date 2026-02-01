@@ -25,7 +25,13 @@ SECRET_KEY = 'django-insecure-82jgk!*v542gb2kl2bui3jkl5o)@kwl4-iw*a0)f95zt@8*f=k
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [
+    'localhost',
+    '127.0.0.1',
+    '[::1]',
+    '.ngrok-free.dev',
+    '.ngrok-free.app',
+]
 
 
 # Application definition
@@ -107,11 +113,18 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'Asia/Manila'
 
 USE_I18N = True
 
 USE_TZ = True
+
+# Allow CSRF from HTTPS tunnels (e.g., ngrok) so login works from
+# phone/other devices via secure public URLs.
+CSRF_TRUSTED_ORIGINS = [
+    'https://*.ngrok-free.dev',
+    'https://*.ngrok-free.app',
+]
 
 
 # Static files (CSS, JavaScript, Images)

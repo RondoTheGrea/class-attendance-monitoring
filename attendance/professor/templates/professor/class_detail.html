@@ -16,13 +16,20 @@
                 <div style="display: flex; align-items: flex-start; gap: 16px;">
                     <div class="nav-icon">📚</div>
                     <div>
-                        <h1 style="font-size: 30px; margin-bottom: 8px;">{{ class_obj.subject }}</h1>
+                        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                            <h1 style="font-size: 30px; margin: 0;">{{ class_obj.subject }}</h1>
+                                     <a href="{% url 'professor:edit_class' class_obj.id %}"
+                                         class="btn btn-sm btn-icon-square"
+                                         style="display: inline-flex; align-items: center; justify-content: center;">
+                                ✏️
+                            </a>
+                        </div>
                         <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px;">
                             {% if class_obj.section %}
-                            <span class="badge badge-secondary">Section {{ class_obj.section }}</span>
+                            <span class="badge badge-secondary">Section: {{ class_obj.section }}</span>
                             {% endif %}
                             {% if class_obj.room %}
-                            <span class="badge badge-outline">📍 {{ class_obj.room }}</span>
+                            <span class="badge badge-outline">Room: {{ class_obj.room }}</span>
                             {% endif %}
                         </div>
                         {% if class_obj.description %}
@@ -31,9 +38,11 @@
                     </div>
                 </div>
 
-                <a href="{% url 'professor:activate_qr' class_obj.id %}" class="btn btn-primary btn-lg">
-                    🔲 Activate QR Scanning
-                </a>
+                <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
+                    <a href="{% url 'professor:activate_qr' class_obj.id %}" class="btn btn-primary btn-lg">
+                        🔲 Activate QR Scanning
+                    </a>
+                </div>
             </div>
         </div>
     </div>

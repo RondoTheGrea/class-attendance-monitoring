@@ -1,0 +1,78 @@
+{% load professor_extras %}
+<div>
+    {% if attendance_records %}
+        {% for record in attendance_records %}
+        <div class="attendance-record">
+            <div class="record-header" style="display: flex; justify-content: space-between; align-items: center; gap: 12px;">
+                <div>
+                    <h4>{{ record.date|date:"M d, Y g:i A" }}</h4>
+                    <div class="schedule-time" style="margin-top: 4px;">
+                        <span>🕐</span>
+                        <span>{{ record.schedule_time }}</span>
+                    </div>
+                </div>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span class="badge badge-success">{{ record.get_student_count }} present</span>
+                    <button type="button"
+                            class="btn btn-ghost btn-sm"
+                            aria-label="Toggle students for this session"
+                            data-toggle="attendance-record"
+                            data-target="attendance-students-{{ record.id }}">
+                        <span class="toggle-icon" data-state="collapsed">▼</span>
+                    </button>
+                </div>
+            </div>
+            <div id="attendance-students-{{ record.id }}" class="student-list" style="display: none;">
+                {% for entry in record.entries.all %}
+                <div class="student-item">
+                    <div class="student-info">
+                        <span class="check-icon">✓</span>
+                        <div>
+                            <p class="student-name">{{ entry.student.get_full_name|default:entry.student.username }}</p>
+                            <p class="student-id">{{ entry.student.username }}</p>
+                        </div>
+                    </div>
+                    <p class="scan-time">{{ entry.time_scanned|time:"g:i A" }}</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <div class="card">
+            <div class="card-content" style="padding: 64px 24px; text-align: center;">
+                <div style="background-color: #f1f5f9; border-radius: 50%; padding: 24px; width: fit-content; margin: 0 auto 16px;">
+                    <span style="font-size: 48px;">👥</span>
+                </div>
+                <p style="color: #64748b; font-weight: 500; margin-bottom: 8px;">No attendance records yet</p>
+                <p class="text-sm text-muted" style="max-width: 500px; margin: 0 auto;">
+                    Start the QR scanner during a scheduled class to begin recording attendance. New scans will appear here.
+                </p>
+            </div>
+        </div>
+    {% endif %}
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const toggles = document.querySelectorAll('[data-toggle="attendance-record"]');
+    toggles.forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            const targetId = btn.getAttribute('data-target');
+            const panel = document.getElementById(targetId);
+            if (!panel) return;
+
+            const icon = btn.querySelector('.toggle-icon');
+            const isHidden = panel.style.display === 'none' || panel.style.display === '';
+
+            if (isHidden) {
+                panel.style.display = 'block';
+                if (icon) icon.textContent = '▲';
+            } else {
+                panel.style.display = 'none';
+                if (icon) icon.textContent = '▼';
+            }
+        });
+    });
+});
+</script>

@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Professor Dashboard{% endblock %}</title>
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'professor/css/dashboard.css' %}">
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    {% if messages %}
+    <div class="messages">
+        {% for message in messages %}
+            {% if 'error' in message.tags or 'danger' in message.tags %}
+                <div class="message message-{{ message.tags }}" style="background-color:#fee2e2;border:1px solid #fca5a5;color:#991b1b;padding:12px 16px;margin-bottom:8px;border-radius:8px;">
+                    {{ message }}
+                </div>
+            {% else %}
+                <div class="message message-{{ message.tags }}">
+                    {{ message }}
+                </div>
+            {% endif %}
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {% block content %}{% endblock %}
+
+    <script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const messages = document.querySelector('.messages');
+        if (!messages) return;
+
+        setTimeout(function () {
+            messages.style.transition = 'opacity 0.4s ease, transform 0.4s ease';
+            messages.style.opacity = '0';
+            messages.style.transform = 'translate(-50%, -10px)';
+
+            setTimeout(function () {
+                if (messages && messages.parentNode) {
+                    messages.parentNode.removeChild(messages);
+                }
+            }, 400);
+        }, 5000);
+    });
+    </script>
+
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

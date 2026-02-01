@@ -1,0 +1,86 @@
+{% extends "student/base.html" %}
+{% load static %}
+
+{% block title %}Join Class{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-slate-50">
+    <!-- Top Navigation Bar -->
+    <div class="nav-bar">
+        <div class="nav-container">
+            <div class="nav-brand">
+                <div class="nav-icon">👨‍🎓</div>
+                <div>
+                    <h1 style="font-size: 20px; margin: 0;">Join Class</h1>
+                    <p class="text-sm text-muted" style="margin: 0;">Enter class code to enroll</p>
+                </div>
+            </div>
+            <a href="{% url 'student:dashboard' %}" class="btn btn-outline btn-lg">
+                ← Back to Dashboard
+            </a>
+        </div>
+    </div>
+
+    <!-- Main Content Area -->
+    <div class="container" style="padding-top: 64px; padding-bottom: 64px;">
+        <div style="max-width: 500px; margin: 0 auto;">
+            <div class="card">
+                <div class="card-header" style="text-align: center;">
+                    <h2>Join a Class</h2>
+                    <p class="text-muted" style="margin-top: 8px;">
+                        Enter the 6-digit class code provided by your professor
+                    </p>
+                </div>
+                <div class="card-content">
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="form-group">
+                            <label for="{{ form.class_code.id_for_label }}">Class Code</label>
+                            {{ form.class_code }}
+                            {% if form.class_code.errors %}
+                                <div style="color: #dc2626; font-size: 14px; margin-top: 4px;">
+                                    {{ form.class_code.errors.0 }}
+                                </div>
+                            {% endif %}
+                            {% if form.class_code.help_text %}
+                                <p class="text-sm text-muted" style="margin-top: 4px;">
+                                    {{ form.class_code.help_text }}
+                                </p>
+                            {% endif %}
+                        </div>
+
+                        <div class="info-box" style="margin-top: 24px;">
+                            <span>ℹ️</span>
+                            <p>Ask your professor for the class code. It's a 6-character code (letters and numbers).</p>
+                        </div>
+
+                        <div style="display: flex; gap: 12px; margin-top: 24px;">
+                            <a href="{% url 'student:dashboard' %}" class="btn btn-outline" style="flex: 1;">
+                                Cancel
+                            </a>
+                            <button type="submit" class="btn btn-primary" style="flex: 1;">
+                                Join Class
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const codeInput = document.querySelector('input[name="class_code"]');
+    if (codeInput) {
+        // Auto-uppercase and format
+        codeInput.addEventListener('input', function(e) {
+            e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+        });
+        
+        // Focus on load
+        codeInput.focus();
+    }
+});
+</script>
+{% endblock %}

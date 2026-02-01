@@ -1,0 +1,95 @@
+<div style="display: flex; flex-direction: column; gap: 24px;">
+    <!-- Announcements Card with Add Button -->
+    <div class="card">
+        <div class="card-header">
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+                <h3>Announcements</h3>
+                <button type="button" class="btn btn-primary btn-sm" onclick="openAnnouncementModal()">
+                    + Add Announcement
+                </button>
+            </div>
+        </div>
+        <div class="card-content">
+            <!-- Announcements List -->
+            {% if announcements %}
+                {% for announcement in announcements %}
+                <div class="card" style="margin-bottom: 16px;">
+                    <div class="card-header" style="padding-bottom: 12px;">
+                        <div style="display: flex; align-items: flex-start; justify-content: space-between;">
+                            <h4 style="font-size: 18px; margin: 0;">{{ announcement.title }}</h4>
+                            <span class="badge badge-outline">{{ announcement.created_at|date:"M d, Y g:i A" }}</span>
+                        </div>
+                    </div>
+                    <div class="card-content">
+                        <p style="color: #334155; line-height: 1.6; white-space: pre-wrap;">{{ announcement.content }}</p>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="empty-state" style="padding: 48px 24px;">
+                    <div style="background-color: #f1f5f9; border-radius: 50%; padding: 24px; width: fit-content; margin: 0 auto 16px;">
+                        <span style="font-size: 48px;">🔔</span>
+                    </div>
+                    <p style="color: #64748b; font-weight: 500; margin-bottom: 4px;">No announcements yet</p>
+                    <p class="text-sm text-muted">Post your first announcement to keep students informed</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Add Announcement Modal -->
+    <div id="announcement-modal" class="modal-overlay" style="display: none;">
+        <div class="modal-dialog" onclick="event.stopPropagation();">
+            <div class="modal-header">
+                <h2>Post New Announcement</h2>
+                <p class="text-muted" style="margin-top: 4px;">Share important updates and information with your students.</p>
+                <button class="close-button" type="button" onclick="closeAnnouncementModal()">✕</button>
+            </div>
+
+            <form method="post" action="{% url 'professor:post_announcement' class_obj.id %}" class="modal-body">
+                {% csrf_token %}
+                <div class="form-group">
+                    <label>Title</label>
+                    <input type="text" name="title" class="form-input" placeholder="Announcement title..." required>
+                </div>
+                <div class="form-group">
+                    <label>Content</label>
+                    <textarea name="content" class="form-textarea" rows="4" placeholder="Write your announcement here..." required></textarea>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline" onclick="closeAnnouncementModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Post Announcement</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+</div>
+
+<script>
+function openAnnouncementModal() {
+    const modal = document.getElementById('announcement-modal');
+    if (modal) {
+        modal.style.display = 'flex';
+    }
+}
+
+function closeAnnouncementModal() {
+    const modal = document.getElementById('announcement-modal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const modal = document.getElementById('announcement-modal');
+    if (modal) {
+        modal.addEventListener('click', function(event) {
+            if (event.target === modal) {
+                closeAnnouncementModal();
+            }
+        });
+    }
+});
+</script>

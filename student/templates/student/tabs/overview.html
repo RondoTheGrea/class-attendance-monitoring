@@ -1,0 +1,110 @@
+{% load professor_extras %}
+<div style="display: flex; flex-direction: column; gap: 24px;">
+    <!-- Quick Stats Grid -->
+    <div class="stats-grid">
+        <div class="stat-card stat-card-green">
+            <div class="stat-top-row">
+                <div class="stat-icon">✅</div>
+                <span class="stat-number">{{ total_attendance }}</span>
+            </div>
+            <span class="stat-label">Attendance Records</span>
+        </div>
+
+        <div class="stat-card stat-card-amber">
+            <div class="stat-top-row">
+                <div class="stat-icon">🔔</div>
+                <span class="stat-number">{{ announcements.count }}</span>
+            </div>
+            <span class="stat-label">Announcements</span>
+        </div>
+
+        <div class="stat-card stat-card-blue">
+            <div class="stat-top-row">
+                <div class="stat-icon">📅</div>
+                <span class="stat-number">{{ schedules.count }}</span>
+            </div>
+            <span class="stat-label">Weekly Schedules</span>
+        </div>
+    </div>
+
+    <!-- Weekly Schedule Summary -->
+    {% if schedules %}
+    <div class="card">
+        <div class="card-header">
+            <h3>Weekly Schedule</h3>
+        </div>
+        <div class="card-content">
+            <div style="display: flex; flex-direction: column; gap: 12px;">
+                {% for schedule in schedules %}
+                <div class="schedule-item">
+                    <div class="schedule-item-content">
+                        <div class="schedule-icon-container">
+                            <span style="color: #1e40af; font-size: 20px;">📅</span>
+                        </div>
+                            <div class="schedule-details">
+                                <p class="schedule-day">{{ schedule.day }}</p>
+                                <div class="schedule-time">
+                                    <span>🕐</span>
+                                    <span>{{ schedule.start_time|format_time }} - {{ schedule.end_time|format_time }}</span>
+                                </div>
+                            </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Recent Announcements -->
+    {% if announcements %}
+    <div class="card">
+        <div class="card-header">
+            <h3>Recent Announcements</h3>
+            <a href="{% url 'student:class_detail' class_obj.id %}?tab=announcements" class="text-sm" style="color: #2563eb; text-decoration: none;">
+                View All →
+            </a>
+        </div>
+        <div class="card-content">
+            <div style="display: flex; flex-direction: column; gap: 16px;">
+                {% for announcement in announcements|slice:":3" %}
+                <div style="padding-bottom: 16px; border-bottom: 1px solid #e2e8f0;">
+                    <div style="display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 8px;">
+                        <h4 style="font-size: 16px; font-weight: 600; color: #0f172a; margin: 0;">{{ announcement.title }}</h4>
+                        <span class="badge badge-outline" style="font-size: 11px;">{{ announcement.created_at|date:"M d" }}</span>
+                    </div>
+                    <p style="color: #64748b; font-size: 14px; line-height: 1.5; margin: 0; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">
+                        {{ announcement.content }}
+                    </p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Recent Attendance Records -->
+    {% if attendance_records %}
+    <div class="card">
+        <div class="card-header">
+            <h3>Recent Attendance</h3>
+            <a href="{% url 'student:class_detail' class_obj.id %}?tab=attendance" class="text-sm" style="color: #2563eb; text-decoration: none;">
+                View All →
+            </a>
+        </div>
+        <div class="card-content">
+            <div style="display: flex; flex-direction: column; gap: 12px;">
+                {% for record in attendance_records|slice:":5" %}
+                <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px; background-color: #f8fafc; border-radius: 8px;">
+                    <div>
+                        <p style="font-weight: 600; color: #0f172a; margin-bottom: 4px; margin: 0;">{{ record.date|date:"M d, Y" }}</p>
+                        <p style="font-size: 12px; color: #64748b; margin: 0;">{{ record.schedule_time }}</p>
+                    </div>
+                    <span class="badge badge-success">Present</span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>

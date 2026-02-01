@@ -1,0 +1,38 @@
+{% load professor_extras %}
+<div>
+    <div class="card">
+        <div class="card-header">
+            <h3>Weekly Schedule</h3>
+        </div>
+        <div class="card-content">
+            {% if schedules %}
+                <div>
+                    {% for schedule in schedules %}
+                    <div class="schedule-item">
+                        <div class="schedule-item-content">
+                            <div class="schedule-icon-container">
+                                <span style="color: #1e40af; font-size: 20px;">📅</span>
+                            </div>
+                            <div class="schedule-details">
+                                <p class="schedule-day">{{ schedule.day }}</p>
+                                <div class="schedule-time">
+                                    <span>🕐</span>
+                                    <span>{{ schedule.start_time|format_time }} - {{ schedule.end_time|format_time }}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="empty-state" style="padding: 48px 24px;">
+                    <div style="background-color: #f1f5f9; border-radius: 50%; padding: 24px; width: fit-content; margin: 0 auto 16px;">
+                        <span style="font-size: 48px;">📅</span>
+                    </div>
+                    <p style="color: #64748b; font-weight: 500; margin-bottom: 4px;">No schedules configured</p>
+                    <p class="text-sm text-muted">The professor hasn't set up class schedules yet.</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>

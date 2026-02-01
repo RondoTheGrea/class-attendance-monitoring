@@ -1,0 +1,156 @@
+{% extends "professor/base.html" %}
+{% load static %}
+
+{% block title %}QR Code - {{ class_obj.subject }}{% endblock %}
+
+{% block extra_css %}
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+<style>
+    .qr-code-wrapper {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        padding: 24px;
+        background: white;
+        border-radius: 16px;
+        box-shadow: inset 0 2px 4px 0 rgb(0 0 0 / 0.06);
+        border: 4px solid #f1f5f9;
+    }
+    #qrcode {
+        padding: 20px;
+        background: white;
+    }
+    #qrcode canvas {
+        max-width: 100%;
+        height: auto;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="modal-overlay" onclick="window.location.href='{% url 'professor:class_detail' class_obj.id %}'">
+    <div class="qr-modal" onclick="event.stopPropagation();">
+        <div class="card-header" style="text-align: center; padding-bottom: 16px;">
+            <h2 style="font-size: 24px; margin-bottom: 8px;">Attendance QR Code</h2>
+            <p class="text-sm text-muted">Students scan this code to mark attendance</p>
+        </div>
+        <div class="card-content" style="display: flex; flex-direction: column; align-items: center; gap: 24px;">
+            <div class="qr-code-wrapper">
+                <div id="qrcode"></div>
+            </div>
+            <div class="qr-info">
+                <p style="font-weight: 500; color: #0f172a; margin-bottom: 4px;">{{ class_obj.subject }}</p>
+                {% if class_obj.section %}
+                <p class="text-sm text-muted">Section {{ class_obj.section }}</p>
+                {% endif %}
+            </div>
+            <div style="display: flex; gap: 12px; width: 100%;">
+                <button onclick="downloadQRCode()" class="btn btn-primary" style="flex: 1;">
+                    📥 Download QR Code
+                </button>
+                <a href="{% url 'professor:class_detail' class_obj.id %}" class="btn btn-outline" style="flex: 1;">
+                    Close Scanner
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let qrCanvas = null;
+    const qrData = {{ qr_data_json|safe }};
+    const className = "{{ class_obj.subject|escapejs }}";
+    const classSection = "{{ class_obj.section|default:''|escapejs }}";
+    
+    document.addEventListener('DOMContentLoaded', function() {
+        const qrDataString = JSON.stringify(qrData);
+        
+        // Generate QR code using qrcode.js
+        QRCode.toCanvas(document.getElementById('qrcode'), qrDataString, {
+            width: 280,
+            margin: 2,
+            color: {
+                dark: '#000000',
+                light: '#FFFFFF'
+            }
+        }, function (error, canvas) {
+            if (error) {
+                console.error('QR Code generation error:', error);
+                document.getElementById('qrcode').innerHTML = `
+                    <div style="text-align: center; padding: 40px;">
+                        <div style="font-size: 48px; margin-bottom: 12px;">🔲</div>
+                        <div style="font-weight: 500; color: #64748b;">QR Code Error</div>
+                        <div style="font-size: 12px; color: #94a3b8; margin-top: 8px;">Please try again</div>
+                    </div>
+                `;
+            } else {
+                qrCanvas = canvas;
+            }
+        });
+    });
+    
+    function downloadQRCode() {
+        if (!qrCanvas) {
+            alert('QR code is still loading. Please wait a moment.');
+            return;
+        }
+        
+        // Create a fixed-size image (ID card size: 400x400px square)
+        const cardWidth = 400;
+        const cardHeight = 400;
+        const downloadCanvas = document.createElement('canvas');
+        downloadCanvas.width = cardWidth;
+        downloadCanvas.height = cardHeight;
+        const ctx = downloadCanvas.getContext('2d');
+        
+        // White background
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(0, 0, cardWidth, cardHeight);
+        
+        // Add border
+        ctx.strokeStyle = '#2563eb';
+        ctx.lineWidth = 4;
+        ctx.strokeRect(2, 2, cardWidth - 4, cardHeight - 4);
+        
+        // Calculate QR code size (smaller to fit with text)
+        const qrSize = 250;
+        const qrX = (cardWidth - qrSize) / 2;
+        const qrY = 60;
+        
+        // Draw QR code
+        ctx.drawImage(qrCanvas, qrX, qrY, qrSize, qrSize);
+        
+        // Add text
+        ctx.fillStyle = '#0f172a';
+        ctx.font = 'bold 20px Arial';
+        ctx.textAlign = 'center';
+        
+        // Class name
+        ctx.fillText(className, cardWidth / 2, 30);
+        
+        // Section if available
+        if (classSection) {
+            ctx.font = '16px Arial';
+            ctx.fillStyle = '#64748b';
+            ctx.fillText('Section ' + classSection, cardWidth / 2, 50);
+        }
+        
+        // Bottom text
+        ctx.font = '14px Arial';
+        ctx.fillStyle = '#64748b';
+        ctx.fillText('Scan to mark attendance', cardWidth / 2, cardHeight - 20);
+        
+        // Download the image
+        downloadCanvas.toBlob(function(blob) {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'qr-code-' + className.replace(/\s+/g, '-').toLowerCase() + '.png';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        });
+    }
+</script>
+{% endblock %}

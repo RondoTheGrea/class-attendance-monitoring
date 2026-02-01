@@ -169,7 +169,7 @@ def activate_qr_scanning(request, class_id):
     # Check if class has schedules
     schedules = class_obj.schedules.all()
     if not schedules.exists():
-        messages.error(request, 'QR code activation failed: No class schedules found. Please configure class schedules first before activating QR scanning. (Go to the "Schedule" tab to add a schedule.)')
+        messages.error(request, 'Please configure class schedules first before activating QR scanning.')
         return redirect('professor:class_detail', class_id=class_id)
     
     # Check if current time matches any schedule
@@ -185,16 +185,7 @@ def activate_qr_scanning(request, class_id):
                 break
     
     if not active_schedule:
-        # Gather debug info
-        schedule_info = '\n'.join([
-            f"{s.day} {s.start_time.strftime('%H:%M')} - {s.end_time.strftime('%H:%M')}" for s in schedules
-        ])
-        debug_msg = (
-            'QR code activation failed: This class is not scheduled for the current time. QR scanning is only available during scheduled class hours. Please check your class schedule or try again at the correct time.'
-            f"\n\n[DEBUG] Current day: {current_day}, Current time: {current_time.strftime('%H:%M:%S')}\n"
-            f"Class schedules:\n{schedule_info}"
-        )
-        messages.error(request, debug_msg.replace('\n', '<br>'))
+        messages.error(request, 'This class is not scheduled for the current time. QR scanning is only available during scheduled class hours.')
         return redirect('professor:class_detail', class_id=class_id)
     
     # Generate QR code data
@@ -228,7 +219,6 @@ def activate_qr_scanning(request, class_id):
         'qr_data': qr_data,
         'qr_data_json': json.dumps(qr_data),
         'schedule_time': schedule_time_str,
-        'attendance_record': attendance_record,
     }
     
     return render(request, 'professor/qr_code_modal.html', context)
@@ -335,38 +325,12 @@ def process_qr_scan(request, class_id):
         try:
             data = json.loads(request.body)
             scanned_name = data.get('student_name', '').strip()
-            attendance_record_id = data.get('attendance_record_id')
             
             if not scanned_name:
                 return JsonResponse({'success': False, 'error': 'No student name provided'}, status=400)
             
             # Get the class
             class_obj = get_object_or_404(Class, id=class_id, professor=request.user)
-            
-            # Get attendance record (either from parameter or create new one)
-            if attendance_record_id:
-                attendance_record = get_object_or_404(AttendanceRecord, id=attendance_record_id, class_obj=class_obj)
-            else:
-                # Fallback: create or get attendance record for today's session
-                now = timezone.now()
-                active_schedule = get_active_schedule(class_obj, now)
-                
-                if not active_schedule:
-                    return JsonResponse({
-                        'success': False, 
-                        'error': 'No active schedule found for current time'
-                    }, status=400)
-                
-                schedule_time_str = f"{active_schedule.start_time.strftime('%H:%M')} - {active_schedule.end_time.strftime('%H:%M')}"
-                
-                attendance_record, _ = AttendanceRecord.objects.get_or_create(
-                    class_obj=class_obj,
-                    date__date=now.date(),
-                    schedule_time=schedule_time_str,
-                    defaults={
-                        'date': now,
-                    }
-                )
             
             # Search for students enrolled in this class whose full name matches
             enrollments = StudentClassEnrollment.objects.filter(class_obj=class_obj).select_related('student')
@@ -375,7 +339,6 @@ def process_qr_scan(request, class_id):
             for enrollment in enrollments:
                 student = enrollment.student
                 student_full_name = student.get_full_name() or student.username
-                # Try exact match first, then case-insensitive
                 if student_full_name.strip().lower() == scanned_name.lower():
                     matching_student = student
                     break
@@ -383,8 +346,29 @@ def process_qr_scan(request, class_id):
             if not matching_student:
                 return JsonResponse({
                     'success': False, 
-                    'error': f'No enrolled student found with name "{scanned_name}". Make sure the student is enrolled in this class.'
+                    'error': f'No enrolled student found with name "{scanned_name}"'
                 }, status=404)
+            
+            # Get or create attendance record for today's session
+            now = timezone.now()
+            active_schedule = get_active_schedule(class_obj, now)
+            
+            if not active_schedule:
+                return JsonResponse({
+                    'success': False, 
+                    'error': 'No active schedule found for current time'
+                }, status=400)
+            
+            schedule_time_str = f"{active_schedule.start_time.strftime('%H:%M')} - {active_schedule.end_time.strftime('%H:%M')}"
+            
+            attendance_record, _ = AttendanceRecord.objects.get_or_create(
+                class_obj=class_obj,
+                date__date=now.date(),
+                schedule_time=schedule_time_str,
+                defaults={
+                    'date': now,
+                }
+            )
             
             # Check if student already marked attendance for this session
             if AttendanceEntry.objects.filter(

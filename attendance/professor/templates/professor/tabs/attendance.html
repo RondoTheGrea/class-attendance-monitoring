@@ -1,5 +1,12 @@
 {% load professor_extras %}
 <div>
+    <!-- Scanner Button -->
+    <div style="margin-bottom: 24px;">
+        <a href="{% url 'professor:scan_student_qr' class_obj.id %}" class="btn btn-primary btn-lg" style="width: 100%;">
+            📷 Scan Student QR Code
+        </a>
+    </div>
+    
     {% if attendance_records %}
         {% for record in attendance_records %}
         <div class="attendance-record">
@@ -37,7 +44,7 @@
                 </div>
                 <p style="color: #64748b; font-weight: 500; margin-bottom: 8px;">No attendance records yet</p>
                 <p class="text-sm text-muted" style="max-width: 500px; margin: 0 auto;">
-                    Click "Activate QR Scanning" at the top to start recording attendance. The scanner will automatically detect student QR codes.
+                    Click "Scan Student QR Code" above to start recording attendance. Students will show you their QR codes containing their names.
                 </p>
             </div>
         </div>

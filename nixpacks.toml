@@ -1,0 +1,25 @@
+# Railway/Nixpacks configuration
+# App is in the "attendance" subdirectory
+
+providers = ["python"]
+
+[variables]
+PYTHONUNBUFFERED = "1"
+
+[phases.setup]
+nixPkgs = ["python312"]
+aptPkgs = ["libpq-dev"]
+
+[phases.install]
+cmds = [
+    "cd attendance && pip install --upgrade pip",
+    "cd attendance && pip install -r requirements.txt"
+]
+
+[phases.build]
+cmds = [
+    "cd attendance && python manage.py collectstatic --noinput"
+]
+
+[start]
+cmd = "cd attendance && python manage.py migrate && gunicorn attendance.wsgi --bind 0.0.0.0:${PORT:-8000}"

@@ -1,0 +1,223 @@
+{% load professor_extras %}
+<div>
+    <div class="card">
+        <div class="card-header">
+            <h3>Class Schedule</h3>
+        </div>
+        <div class="card-content">
+            {% if schedules %}
+                <!-- Calendar View -->
+                <div style="margin-bottom: 32px;">
+                    <div id="calendar-container"></div>
+                </div>
+
+                <!-- Time Bars for Each Day -->
+                <div style="display: flex; flex-direction: column; gap: 24px;">
+                    <h4 style="font-size: 18px; font-weight: 600; color: #0f172a; margin-bottom: 16px;">Weekly Time Schedule</h4>
+                    
+                    <!-- Time Scale -->
+                    <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 8px; padding-left: 116px;">
+                        <div style="flex: 1; position: relative; height: 30px; border-bottom: 1px solid #e2e8f0;">
+                            <div id="time-scale" style="position: relative; width: 100%; height: 100%;"></div>
+                        </div>
+                    </div>
+                    
+                    {% for schedule in schedules %}
+                    <div class="schedule-day-bar">
+                        <div style="display: flex; align-items: center; gap: 16px;">
+                            <div style="min-width: 100px;">
+                                <p style="font-weight: 600; color: #0f172a; margin: 0; font-size: 16px;">{{ schedule.day }}</p>
+                            </div>
+                            <div style="flex: 1; position: relative; height: 50px; background: linear-gradient(to right, #f1f5f9 0%, #f1f5f9 100%); border-radius: 8px; overflow: visible;">
+                                <div class="time-bar" 
+                                     data-start-hour="{{ schedule.start_time.hour }}"
+                                     data-start-minute="{{ schedule.start_time.minute }}"
+                                     data-end-hour="{{ schedule.end_time.hour }}"
+                                     data-end-minute="{{ schedule.end_time.minute }}"
+                                     style="position: absolute; height: 100%; background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; font-size: 12px; box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2);">
+                                    <span>{{ schedule.start_time|format_time }} - {{ schedule.end_time|format_time }}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="empty-state" style="padding: 48px 24px;">
+                    <div style="background-color: #f1f5f9; border-radius: 50%; padding: 24px; width: fit-content; margin: 0 auto 16px;">
+                        <span style="font-size: 48px;">📅</span>
+                    </div>
+                    <p style="color: #64748b; font-weight: 500; margin-bottom: 4px;">No schedules configured</p>
+                    <p class="text-sm text-muted">The professor hasn't set up class schedules yet</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<style>
+.schedule-day-bar {
+    padding: 16px;
+    background-color: #f8fafc;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+}
+
+.time-bar {
+    box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2);
+    transition: all 0.3s ease;
+}
+
+.time-bar:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(37, 99, 235, 0.3);
+}
+
+#calendar-container {
+    background: white;
+    border-radius: 12px;
+    padding: 24px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+</style>
+
+<link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/main.min.css" rel="stylesheet" />
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/main.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Create time scale
+    const timeScale = document.getElementById('time-scale');
+    if (timeScale) {
+        for (let hour = 0; hour < 24; hour += 2) {
+            const tick = document.createElement('div');
+            tick.style.position = 'absolute';
+            tick.style.left = (hour / 24 * 100) + '%';
+            tick.style.width = '1px';
+            tick.style.height = '100%';
+            tick.style.backgroundColor = '#cbd5e1';
+            
+            const label = document.createElement('span');
+            label.style.position = 'absolute';
+            label.style.left = (hour / 24 * 100) + '%';
+            label.style.transform = 'translateX(-50%)';
+            label.style.fontSize = '10px';
+            label.style.color = '#64748b';
+            label.style.top = '100%';
+            label.style.marginTop = '4px';
+            label.style.whiteSpace = 'nowrap';
+            
+            if (hour === 0) {
+                label.textContent = '12 AM';
+            } else if (hour < 12) {
+                label.textContent = hour + ' AM';
+            } else if (hour === 12) {
+                label.textContent = '12 PM';
+            } else {
+                label.textContent = (hour - 12) + ' PM';
+            }
+            
+            timeScale.appendChild(tick);
+            timeScale.appendChild(label);
+        }
+    }
+    
+    const schedules = [
+        {% for schedule in schedules %}
+        {
+            day: '{{ schedule.day }}',
+            startTime: '{{ schedule.start_time|date:"H:i" }}',
+            endTime: '{{ schedule.end_time|date:"H:i" }}',
+            title: '{{ class_obj.subject }}'
+        }{% if not forloop.last %},{% endif %}
+        {% endfor %}
+    ];
+
+    // Create calendar
+    const calendarEl = document.getElementById('calendar-container');
+    if (calendarEl && schedules.length > 0) {
+        const calendar = new FullCalendar.Calendar(calendarEl, {
+            initialView: 'dayGridMonth',
+            headerToolbar: {
+                left: 'prev,next today',
+                center: 'title',
+                right: 'dayGridMonth,timeGridWeek'
+            },
+            events: function(fetchInfo, successCallback, failureCallback) {
+                const events = [];
+                const start = fetchInfo.start;
+                const end = fetchInfo.end;
+                
+                // Generate recurring events for each schedule
+                schedules.forEach(function(schedule) {
+                    const dayMap = {
+                        'Monday': 1,
+                        'Tuesday': 2,
+                        'Wednesday': 3,
+                        'Thursday': 4,
+                        'Friday': 5,
+                        'Saturday': 6,
+                        'Sunday': 0
+                    };
+                    
+                    const dayOfWeek = dayMap[schedule.day];
+                    let currentDate = new Date(start);
+                    
+                    // Find first occurrence of this day in the range
+                    while (currentDate.getDay() !== dayOfWeek && currentDate < end) {
+                        currentDate.setDate(currentDate.getDate() + 1);
+                    }
+                    
+                    // Add events for each week in the range
+                    while (currentDate < end) {
+                        const eventDate = new Date(currentDate);
+                        const [startHour, startMin] = schedule.startTime.split(':');
+                        const [endHour, endMin] = schedule.endTime.split(':');
+                        
+                        eventDate.setHours(parseInt(startHour), parseInt(startMin));
+                        const endDate = new Date(eventDate);
+                        endDate.setHours(parseInt(endHour), parseInt(endMin));
+                        
+                        events.push({
+                            title: schedule.title,
+                            start: eventDate.toISOString(),
+                            end: endDate.toISOString(),
+                            color: '#2563eb',
+                            textColor: 'white'
+                        });
+                        
+                        currentDate.setDate(currentDate.getDate() + 7);
+                    }
+                });
+                
+                successCallback(events);
+            },
+            eventTimeFormat: {
+                hour: 'numeric',
+                minute: '2-digit',
+                meridiem: 'short'
+            }
+        });
+        
+        calendar.render();
+    }
+
+    // Calculate time bar positions
+    document.querySelectorAll('.time-bar').forEach(function(bar) {
+        const startHour = parseInt(bar.getAttribute('data-start-hour'));
+        const startMinute = parseInt(bar.getAttribute('data-start-minute'));
+        const endHour = parseInt(bar.getAttribute('data-end-hour'));
+        const endMinute = parseInt(bar.getAttribute('data-end-minute'));
+        
+        // Convert to minutes from midnight
+        const startMinutes = startHour * 60 + startMinute;
+        const endMinutes = endHour * 60 + endMinute;
+        
+        // Convert to percentage (24 hours = 1440 minutes = 100%)
+        const startPercent = (startMinutes / 1440) * 100;
+        const widthPercent = ((endMinutes - startMinutes) / 1440) * 100;
+        
+        bar.style.left = startPercent + '%';
+        bar.style.width = widthPercent + '%';
+    });
+});
+</script>

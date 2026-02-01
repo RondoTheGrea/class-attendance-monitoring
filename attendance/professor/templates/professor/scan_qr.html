@@ -1,0 +1,248 @@
+{% extends "professor/base.html" %}
+{% load static %}
+
+{% block title %}Scan Student QR - {{ class_obj.subject }}{% endblock %}
+
+{% block extra_css %}
+<script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<style>
+    .scanner-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 24px;
+        padding: 24px;
+    }
+    #reader {
+        width: 100%;
+        max-width: 500px;
+        border-radius: 16px;
+        overflow: hidden;
+        background: white;
+        box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+    }
+    .scan-results {
+        width: 100%;
+        max-width: 500px;
+    }
+    .success-message {
+        background: #10b981;
+        color: white;
+        padding: 16px;
+        border-radius: 8px;
+        margin-bottom: 16px;
+    }
+    .error-message {
+        background: #ef4444;
+        color: white;
+        padding: 16px;
+        border-radius: 8px;
+        margin-bottom: 16px;
+    }
+    .scanned-students {
+        background: white;
+        border-radius: 8px;
+        padding: 16px;
+        box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
+    }
+    .student-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 12px;
+        border-bottom: 1px solid #e5e7eb;
+    }
+    .student-item:last-child {
+        border-bottom: none;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-slate-50">
+    <!-- Header Bar -->
+    <div class="nav-bar">
+        <div class="container" style="padding-top: 16px; padding-bottom: 16px;">
+            <a href="{% url 'professor:class_detail' class_obj.id %}?tab=attendance" class="btn btn-ghost" style="margin-bottom: 16px;">
+                ← Back to Class
+            </a>
+
+            <div style="display: flex; align-items: flex-start; gap: 16px;">
+                <div class="nav-icon">📷</div>
+                <div>
+                    <h1 style="font-size: 30px; margin-bottom: 8px;">Scan Student QR Code</h1>
+                    <p style="color: #64748b;">{{ class_obj.subject }} - {{ schedule_time }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="container" style="padding-top: 32px; padding-bottom: 32px;">
+        <div class="scanner-container">
+            <div id="reader"></div>
+            
+            <div class="scan-results" id="scan-results" style="display: none;">
+                <div id="message"></div>
+                <div class="scanned-students" id="scanned-students">
+                    <h3 style="margin-bottom: 16px; font-size: 18px;">Scanned Students</h3>
+                    <div id="students-list"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let html5QrcodeScanner;
+    let scannedStudents = new Set();
+    const classId = {{ class_obj.id }};
+    
+    document.addEventListener('DOMContentLoaded', function() {
+        html5QrcodeScanner = new Html5Qrcode("reader");
+        
+        // Start scanning
+        html5QrcodeScanner.start(
+            { facingMode: "environment" }, // Use back camera
+            {
+                fps: 10,
+                qrbox: { width: 250, height: 250 }
+            },
+            onScanSuccess,
+            onScanError
+        );
+    });
+    
+    function onScanSuccess(decodedText, decodedResult) {
+        // Stop scanning after successful scan
+        html5QrcodeScanner.stop().then(() => {
+            processQRCode(decodedText);
+        }).catch((err) => {
+            console.error('Error stopping scanner:', err);
+            processQRCode(decodedText);
+        });
+    }
+    
+    function onScanError(errorMessage) {
+        // Ignore scan errors, just keep scanning
+    }
+    
+    function processQRCode(studentName) {
+        // Show loading state
+        document.getElementById('scan-results').style.display = 'block';
+        document.getElementById('message').innerHTML = '<div style="padding: 16px; text-align: center;">Processing...</div>';
+        
+        // Get CSRF token from cookies
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+        const csrftoken = getCookie('csrftoken');
+        
+        // Send to server
+        fetch(`/professor/class/${classId}/qr/process/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrftoken
+            },
+            body: JSON.stringify({
+                student_name: studentName
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Add to scanned students list
+                if (!scannedStudents.has(data.student_name)) {
+                    scannedStudents.add(data.student_name);
+                    addStudentToList(data.student_name);
+                }
+                
+                // Show success message
+                document.getElementById('message').innerHTML = 
+                    `<div class="success-message">✓ ${data.message}</div>`;
+                
+                // Resume scanning after 1 second
+                setTimeout(() => {
+                    html5QrcodeScanner.start(
+                        { facingMode: "environment" },
+                        {
+                            fps: 10,
+                            qrbox: { width: 250, height: 250 }
+                        },
+                        onScanSuccess,
+                        onScanError
+                    );
+                    document.getElementById('message').innerHTML = '';
+                }, 1000);
+            } else {
+                // Show error message
+                document.getElementById('message').innerHTML = 
+                    `<div class="error-message">✗ ${data.error}</div>`;
+                
+                // Resume scanning after 2 seconds
+                setTimeout(() => {
+                    html5QrcodeScanner.start(
+                        { facingMode: "environment" },
+                        {
+                            fps: 10,
+                            qrbox: { width: 250, height: 250 }
+                        },
+                        onScanSuccess,
+                        onScanError
+                    );
+                    document.getElementById('message').innerHTML = '';
+                }, 2000);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            document.getElementById('message').innerHTML = 
+                `<div class="error-message">✗ Error processing QR code. Please try again.</div>`;
+            
+            // Resume scanning after 2 seconds
+            setTimeout(() => {
+                html5QrcodeScanner.start(
+                    { facingMode: "environment" },
+                    {
+                        fps: 10,
+                        qrbox: { width: 250, height: 250 }
+                    },
+                    onScanSuccess,
+                    onScanError
+                );
+                document.getElementById('message').innerHTML = '';
+            }, 2000);
+        });
+    }
+    
+    function addStudentToList(studentName) {
+        const studentsList = document.getElementById('students-list');
+        const studentItem = document.createElement('div');
+        studentItem.className = 'student-item';
+        studentItem.innerHTML = `
+            <span style="font-weight: 500;">${studentName}</span>
+            <span style="color: #10b981;">✓</span>
+        `;
+        studentsList.appendChild(studentItem);
+    }
+    
+    // Cleanup when leaving page
+    window.addEventListener('beforeunload', function() {
+        if (html5QrcodeScanner) {
+            html5QrcodeScanner.stop().catch(() => {});
+        }
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,70 @@
+{% extends "professor/base.html" %}
+{% load static %}
+
+{% block title %}Create New Class{% endblock %}
+
+{% block content %}
+<div class="modal-overlay" id="modal-overlay" data-dashboard-url="{% url 'professor:dashboard' %}">
+    <div class="modal-dialog" onclick="event.stopPropagation();">
+        <div class="modal-header">
+            <h2>Create New Class</h2>
+            <p class="text-muted" style="margin-top: 4px;">Add basic class information. You can configure schedules after creating the class.</p>
+            <button class="close-button" id="close-modal" type="button">✕</button>
+        </div>
+        
+        <form method="post" class="modal-body">
+            {% csrf_token %}
+            <div class="form-group">
+                <label>Subject Name *</label>
+                {{ form.subject }}
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Section</label>
+                    {{ form.section }}
+                </div>
+                <div class="form-group">
+                    <label>Room</label>
+                    {{ form.room }}
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Description</label>
+                {{ form.description }}
+            </div>
+
+            <div class="info-box">
+                <span>ℹ️</span>
+                <p>You can add class schedules, post announcements, and manage attendance after creating the class.</p>
+            </div>
+
+            <div class="modal-footer">
+                <a href="{% url 'professor:dashboard' %}" class="btn btn-outline">Cancel</a>
+                <button type="submit" class="btn btn-primary">Create Class</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const modalOverlay = document.getElementById('modal-overlay');
+    const closeButton = document.getElementById('close-modal');
+    const dashboardUrl = modalOverlay.getAttribute('data-dashboard-url');
+    
+    function closeModal() {
+        window.location.href = dashboardUrl;
+    }
+    
+    if (modalOverlay) {
+        modalOverlay.addEventListener('click', closeModal);
+    }
+    
+    if (closeButton) {
+        closeButton.addEventListener('click', closeModal);
+    }
+});
+</script>
+{% endblock %}

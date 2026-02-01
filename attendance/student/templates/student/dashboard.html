@@ -1,6 +1,136 @@
-{% extends "main/base.html" %}
-{% block title %}Student Dashboard{% endblock %}
+{% extends "student/base.html" %}
+{% load static %}
+{% load professor_extras %}
+
+{% block title %}Student Dashboard - Attendance System{% endblock %}
+
 {% block content %}
-<h2>Student Dashboard</h2>
-<p>This is an empty placeholder for now. You can add attendance views and other student features here later.</p>
+<div class="min-h-screen bg-slate-50">
+    <!-- Top Navigation Bar -->
+    <div class="nav-bar">
+        <div class="nav-container">
+            <div class="nav-brand">
+                <div class="nav-icon">👨‍🎓</div>
+                <div>
+                    <h1 style="font-size: 20px; margin: 0;">Student Dashboard</h1>
+                    <p class="text-sm text-muted" style="margin: 0;">My Classes & Attendance</p>
+                </div>
+            </div>
+            <div style="display: flex; gap: 12px;">
+                <a href="{% url 'student:my_qr_code' %}" class="btn btn-outline btn-lg">
+                    📱 My QR Code
+                </a>
+                <a href="{% url 'student:join_class' %}" class="btn btn-primary btn-lg">
+                    + Join Class
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content Area -->
+    <div class="container" style="padding-top: 32px; padding-bottom: 32px;">
+        {% if classes %}
+            <!-- Classes Header -->
+            <div style="margin-bottom: 32px;">
+                <h2>My Classes</h2>
+                <p class="text-muted" style="margin-top: 4px;">
+                    You are enrolled in {{ classes|length }} {{ classes|length|pluralize:"class,classes" }}
+                </p>
+            </div>
+
+            <!-- Classes Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+                {% for class_data in classes %}
+                {% with class_obj=class_data.class_obj %}
+                <div class="class-card" data-class-url="{% url 'student:class_detail' class_obj.id %}" style="cursor: pointer;">
+                    <div class="class-card-header">
+                        <div style="flex: 1;">
+                            <h3 class="class-title">{{ class_obj.subject }}</h3>
+                            <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px;">
+                                {% if class_obj.section %}
+                                <span class="badge badge-secondary">Section {{ class_obj.section }}</span>
+                                {% endif %}
+                                {% if class_obj.room %}
+                                <span class="badge badge-outline">📍 {{ class_obj.room }}</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div style="background: linear-gradient(to bottom right, #eff6ff, #dbeafe); padding: 10px; border-radius: 12px;">
+                            <span style="font-size: 20px;">📚</span>
+                        </div>
+                    </div>
+                    
+                    <div class="class-card-content">
+                        {% if class_obj.description %}
+                        <p style="font-size: 14px; color: #64748b; line-height: 1.6; margin-bottom: 16px; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">
+                            {{ class_obj.description }}
+                        </p>
+                        {% endif %}
+
+                        <!-- Schedule Information -->
+                        {% if class_data.schedules %}
+                            {% for schedule in class_data.schedules|slice:":1" %}
+                            <div class="schedule-info">
+                                <span>📅</span>
+                                <span style="font-weight: 500;">{{ schedule.day }}s</span>
+                                <span style="color: #94a3b8;">•</span>
+                                <span>🕐</span>
+                                <span>{{ schedule.start_time|format_time }} - {{ schedule.end_time|format_time }}</span>
+                            </div>
+                            {% endfor %}
+                        {% else %}
+                            <div class="schedule-info schedule-info-amber">
+                                <p style="margin: 0; font-weight: 500;">No schedule configured</p>
+                            </div>
+                        {% endif %}
+
+                        <!-- Footer Stats -->
+                        <div class="card-footer">
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <span>✅</span>
+                                <span class="text-sm" style="font-weight: 500; color: #64748b;">
+                                    {{ class_data.attendance_count }} attendance {{ class_data.attendance_count|pluralize:"record,records" }}
+                                </span>
+                            </div>
+                            <div class="view-link">
+                                <span>View Details</span>
+                                <span>→</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endwith %}
+                {% endfor %}
+            </div>
+        {% else %}
+            <!-- Empty State -->
+            <div class="empty-state">
+                <div class="empty-state-icon">📚</div>
+                <h2>Welcome to Your Dashboard</h2>
+                <p>
+                    Join your first class using a class code provided by your professor. 
+                    Once enrolled, you can view announcements, schedules, and track your attendance.
+                </p>
+                <a href="{% url 'student:join_class' %}" class="btn btn-primary btn-lg">
+                    + Join Your First Class
+                </a>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const classCards = document.querySelectorAll('.class-card[data-class-url]');
+    
+    classCards.forEach(function(card) {
+        card.addEventListener('click', function() {
+            const url = this.getAttribute('data-class-url');
+            if (url) {
+                window.location.href = url;
+            }
+        });
+    });
+});
+</script>
 {% endblock %}

@@ -1,0 +1,45 @@
+{% load professor_extras %}
+<div>
+    {% if attendance_records %}
+        {% for record in attendance_records %}
+        <div class="attendance-record">
+            <div class="record-header">
+                <div>
+                    <h4>{{ record.date|date:"M d, Y g:i A" }}</h4>
+                    <div class="schedule-time" style="margin-top: 4px;">
+                        <span>🕐</span>
+                        <span>{{ record.schedule_time }}</span>
+                    </div>
+                </div>
+                <span class="badge badge-success">{{ record.get_student_count }} present</span>
+            </div>
+            <div class="student-list">
+                {% for entry in record.entries.all %}
+                <div class="student-item">
+                    <div class="student-info">
+                        <span class="check-icon">✓</span>
+                        <div>
+                            <p class="student-name">{{ entry.student.get_full_name|default:entry.student.username }}</p>
+                            <p class="student-id">{{ entry.student.username }}</p>
+                        </div>
+                    </div>
+                    <p class="scan-time">{{ entry.time_scanned|time:"g:i A" }}</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <div class="card">
+            <div class="card-content" style="padding: 64px 24px; text-align: center;">
+                <div style="background-color: #f1f5f9; border-radius: 50%; padding: 24px; width: fit-content; margin: 0 auto 16px;">
+                    <span style="font-size: 48px;">👥</span>
+                </div>
+                <p style="color: #64748b; font-weight: 500; margin-bottom: 8px;">No attendance records yet</p>
+                <p class="text-sm text-muted" style="max-width: 500px; margin: 0 auto;">
+                    Click "Activate QR Scanning" at the top to start recording attendance. The scanner will automatically detect student QR codes.
+                </p>
+            </div>
+        </div>
+    {% endif %}
+</div>

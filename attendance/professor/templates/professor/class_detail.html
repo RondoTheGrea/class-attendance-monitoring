@@ -1,0 +1,122 @@
+{% extends "professor/base.html" %}
+{% load static %}
+
+{% block title %}{{ class_obj.subject }} - Class Detail{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-slate-50">
+    <!-- Django Messages -->
+    {% if messages %}
+        {% for message in messages %}
+            {% if forloop.first %}
+                <div id="django-message" style="max-width: 700px; margin: 0 auto; padding-top: 18px; padding: 14px 18px; border-radius: 8px; margin-bottom: 12px; font-size: 15px; font-weight: 500; color: #fff; background:
+                    {% if message.tags == 'error' %}#ef4444
+                    {% elif message.tags == 'success' %}#10b981
+                    {% elif message.tags == 'warning' %}#f59e42
+                    {% else %}#2563eb{% endif %};">
+                    {{ message }}
+                </div>
+            {% endif %}
+        {% endfor %}
+        <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            var msg = document.getElementById('django-message');
+            if (msg) {
+                setTimeout(function() {
+                    msg.style.display = 'none';
+                }, 5000);
+            }
+        });
+        </script>
+    {% endif %}
+    <!-- Header Bar -->
+    <div class="nav-bar">
+        <div class="container" style="padding-top: 16px; padding-bottom: 16px;">
+            <a href="{% url 'professor:dashboard' %}" class="btn btn-ghost" style="margin-bottom: 16px;">
+                ← Back to Dashboard
+            </a>
+
+            <div style="display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 16px;">
+                <div style="display: flex; align-items: flex-start; gap: 16px;">
+                    <div class="nav-icon">📚</div>
+                    <div>
+                        <h1 style="font-size: 30px; margin-bottom: 8px;">{{ class_obj.subject }}</h1>
+                        <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px;">
+                            {% if class_obj.section %}
+                            <span class="badge badge-secondary">Section {{ class_obj.section }}</span>
+                            {% endif %}
+                            {% if class_obj.room %}
+                            <span class="badge badge-outline">📍 {{ class_obj.room }}</span>
+                            {% endif %}
+                        </div>
+                        {% if class_obj.description %}
+                        <p style="color: #64748b; max-width: 600px;">{{ class_obj.description }}</p>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <a href="{% url 'professor:activate_qr' class_obj.id %}" class="btn btn-primary btn-lg">
+                    🔲 Activate QR Scanning
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Content Tabs -->
+    <div class="container" style="padding-top: 32px; padding-bottom: 32px;">
+        <div style="width: 100%;">
+            <!-- Tabs Navigation -->
+            <div class="tabs-list">
+                <a href="{% url 'professor:class_detail' class_obj.id %}?tab=overview" 
+                   class="tab-trigger {% if active_tab == 'overview' %}active{% endif %}">
+                    Overview
+                </a>
+                <a href="{% url 'professor:class_detail' class_obj.id %}?tab=schedule" 
+                   class="tab-trigger {% if active_tab == 'schedule' %}active{% endif %}">
+                    Schedule
+                </a>
+                <a href="{% url 'professor:class_detail' class_obj.id %}?tab=announcements" 
+                   class="tab-trigger {% if active_tab == 'announcements' %}active{% endif %}">
+                    Announcements
+                </a>
+                <a href="{% url 'professor:class_detail' class_obj.id %}?tab=attendance" 
+                   class="tab-trigger {% if active_tab == 'attendance' %}active{% endif %}">
+                    Attendance
+                </a>
+            </div>
+
+            <!-- Tab Content -->
+            <div class="tab-content">
+                {% if active_tab == 'overview' %}
+                    {% include 'professor/tabs/overview.html' %}
+                {% elif active_tab == 'schedule' %}
+                    {% include 'professor/tabs/schedule.html' %}
+                {% elif active_tab == 'announcements' %}
+                    {% include 'professor/tabs/announcements.html' %}
+                {% elif active_tab == 'attendance' %}
+                    {% include 'professor/tabs/attendance.html' %}
+                {% else %}
+                    {% include 'professor/tabs/overview.html' %}
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function copyClassCode(code) {
+    navigator.clipboard.writeText(code).then(function() {
+        alert('Class code copied to clipboard!');
+    }, function() {
+        // Fallback for older browsers
+        const textArea = document.createElement('textarea');
+        textArea.value = code;
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+        alert('Class code copied to clipboard!');
+    });
+}
+</script>
+{% endblock %}

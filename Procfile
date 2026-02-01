@@ -1,2 +1,1 @@
-web: gunicorn attendance.wsgi --log-file -
-release: python manage.py migrate
+web: python manage.py migrate && gunicorn attendance.wsgi --bind 0.0.0.0:$PORT --log-file -

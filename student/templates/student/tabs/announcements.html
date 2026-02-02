@@ -3,12 +3,35 @@
         <div style="display: flex; flex-direction: column; gap: 16px;">
             {% for announcement in announcements %}
             <div class="card">
+                {% if 'Class Canceled' in announcement.title %}
+                <div class="card-header" style="padding-bottom: 12px; background-color: #fef2f2; border-left: 4px solid #dc2626;">
+                    <div style="display: flex; align-items: flex-start; justify-content: space-between;">
+                        <h4 style="font-size: 18px; margin: 0; color: #991b1b;">{{ announcement.title }}</h4>
+                        <span class="badge" style="background-color: #fee2e2; color: #dc2626;">{{ announcement.created_at|date:"M d, Y g:i A" }}</span>
+                    </div>
+                </div>
+                {% elif 'Class Resumed' in announcement.title %}
+                <div class="card-header" style="padding-bottom: 12px; background-color: #f0fdf4; border-left: 4px solid #10b981;">
+                    <div style="display: flex; align-items: flex-start; justify-content: space-between;">
+                        <h4 style="font-size: 18px; margin: 0; color: #166534;">{{ announcement.title }}</h4>
+                        <span class="badge" style="background-color: #dcfce7; color: #166534;">{{ announcement.created_at|date:"M d, Y g:i A" }}</span>
+                    </div>
+                </div>
+                {% elif 'Extra Class' in announcement.title %}
+                <div class="card-header" style="padding-bottom: 12px; background-color: #f5f3ff; border-left: 4px solid #7c3aed;">
+                    <div style="display: flex; align-items: flex-start; justify-content: space-between;">
+                        <h4 style="font-size: 18px; margin: 0; color: #5b21b6;">{{ announcement.title }}</h4>
+                        <span class="badge" style="background-color: #ede9fe; color: #6d28d9;">{{ announcement.created_at|date:"M d, Y g:i A" }}</span>
+                    </div>
+                </div>
+                {% else %}
                 <div class="card-header" style="padding-bottom: 12px;">
                     <div style="display: flex; align-items: flex-start; justify-content: space-between;">
                         <h4 style="font-size: 18px; margin: 0;">{{ announcement.title }}</h4>
                         <span class="badge badge-outline">{{ announcement.created_at|date:"M d, Y g:i A" }}</span>
                     </div>
                 </div>
+                {% endif %}
                 <div class="card-content">
                     <p style="color: #334155; line-height: 1.6; white-space: pre-wrap;">{{ announcement.content }}</p>
                 </div>

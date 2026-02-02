@@ -73,6 +73,23 @@ class Schedule(models.Model):
         return f"{self.class_obj.subject} - {self.day} {self.start_time} - {self.end_time}"
 
 
+class ExtraClass(models.Model):
+    """Represents a one-time extra class session (makeup class, special session, etc.)"""
+    class_obj = models.ForeignKey(Class, on_delete=models.CASCADE, related_name='extra_classes')
+    date = models.DateField()
+    start_time = models.TimeField()
+    end_time = models.TimeField()
+    reason = models.CharField(max_length=200, blank=True, null=True)  # e.g., "Makeup class", "Review session"
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['date', 'start_time']
+        unique_together = ['class_obj', 'date', 'start_time', 'end_time']
+
+    def __str__(self):
+        return f"{self.class_obj.subject} - {self.date} {self.start_time} - {self.end_time}"
+
+
 class Announcement(models.Model):
     """Represents an announcement posted by a professor for a class"""
     class_obj = models.ForeignKey(Class, on_delete=models.CASCADE, related_name='announcements')
@@ -93,6 +110,7 @@ class AttendanceRecord(models.Model):
     date = models.DateTimeField(default=timezone.now)
     schedule_time = models.CharField(max_length=50)  # e.g., "09:00 - 10:30"
     qr_code_data = models.TextField(blank=True, null=True)  # Store QR code JSON data
+    canceled = models.BooleanField(default=False)  # Whether the class was canceled
 
     class Meta:
         ordering = ['-date']

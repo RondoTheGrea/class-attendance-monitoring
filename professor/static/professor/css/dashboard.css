@@ -561,11 +561,11 @@ label {
 /* Tabs */
 .tabs-list {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(5, 1fr);
     background-color: white;
     box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
     border-radius: 8px;
-    max-width: 672px;
+    max-width: 800px;
     height: 48px;
     gap: 4px;
     padding: 4px;
@@ -581,6 +581,7 @@ label {
     cursor: pointer;
     transition: all 0.2s;
     border-radius: 8px;
+    text-align: center;
 }
 
 .tab-trigger:hover {

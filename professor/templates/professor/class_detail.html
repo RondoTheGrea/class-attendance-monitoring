@@ -68,6 +68,10 @@
                    class="tab-trigger {% if active_tab == 'attendance' %}active{% endif %}">
                     Attendance
                 </a>
+                <a href="{% url 'professor:class_detail' class_obj.id %}?tab=students" 
+                   class="tab-trigger {% if active_tab == 'students' %}active{% endif %}">
+                    Students
+                </a>
             </div>
 
             <!-- Tab Content -->
@@ -80,6 +84,8 @@
                     {% include 'professor/tabs/announcements.html' %}
                 {% elif active_tab == 'attendance' %}
                     {% include 'professor/tabs/attendance.html' %}
+                {% elif active_tab == 'students' %}
+                    {% include 'professor/tabs/students.html' %}
                 {% else %}
                     {% include 'professor/tabs/overview.html' %}
                 {% endif %}

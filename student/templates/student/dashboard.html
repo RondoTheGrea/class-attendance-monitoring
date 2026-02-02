@@ -79,20 +79,63 @@
         <!-- Main Content Area -->
         <main class="dashboard-main" style="flex: 1; padding: 32px;">
             {% if active_tab == 'schedules' %}
-                <!-- Schedules Tab (Empty for now) -->
+                <!-- Schedules Tab with Calendar -->
                 <div style="margin-bottom: 32px;">
                     <h2>Schedules</h2>
                     <p class="text-muted" style="margin-top: 4px;">
                         View all your class schedules in one place.
                     </p>
                 </div>
-                <div class="card">
-                    <div class="card-content" style="padding: 64px 24px; text-align: center;">
-                        <div style="background-color: #f1f5f9; border-radius: 50%; padding: 24px; width: fit-content; margin: 0 auto 16px;">
-                            <span style="font-size: 48px;">📅</span>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+                    <!-- Calendar -->
+                    <div class="card">
+                        <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+                            <button onclick="prevMonth()" class="btn btn-outline" style="padding: 8px 12px;">← Prev</button>
+                            <h3 id="calendarMonthYear" style="margin: 0;"></h3>
+                            <button onclick="nextMonth()" class="btn btn-outline" style="padding: 8px 12px;">Next →</button>
                         </div>
-                        <p style="color: #64748b; font-weight: 500; margin-bottom: 4px;">Schedule overview coming soon</p>
-                        <p class="text-sm text-muted">This feature is under development.</p>
+                        <div class="card-content">
+                            <div id="calendarGrid" style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px;">
+                                <!-- Calendar will be rendered here -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Selected Day Details -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 id="selectedDayTitle" style="margin: 0;">Select a Date</h3>
+                        </div>
+                        <div class="card-content" id="selectedDaySchedules">
+                            <p class="text-muted">Click on a date to view scheduled classes.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Legend -->
+                <div class="card" style="margin-top: 24px;">
+                    <div class="card-content" style="display: flex; gap: 24px; flex-wrap: wrap; padding: 16px 24px;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span style="width: 12px; height: 12px; background-color: #3b82f6; border-radius: 50%;"></span>
+                            <span class="text-sm">Scheduled Class</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span style="width: 12px; height: 12px; background-color: #10b981; border-radius: 50%;"></span>
+                            <span class="text-sm">Extra Class</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span style="width: 12px; height: 12px; background-color: #ef4444; border-radius: 50%;"></span>
+                            <span class="text-sm">Canceled Class</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span style="width: 24px; height: 24px; border: 2px solid #10b981; border-radius: 4px;"></span>
+                            <span class="text-sm">Day with Extra Class</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span style="width: 24px; height: 24px; border: 2px solid #ef4444; border-radius: 4px;"></span>
+                            <span class="text-sm">Day with Cancellation</span>
+                        </div>
                     </div>
                 </div>
             {% else %}
@@ -201,6 +244,224 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     });
+
+    // Calendar functionality
+    {% if active_tab == 'schedules' %}
+    initCalendar();
+    {% endif %}
 });
+
+// Calendar Variables
+let currentDate = new Date();
+let selectedDateStr = formatDateStr(new Date()); // Track selected date
+const schedulesByDay = {{ schedules_by_day|safe }};
+const extraClassesByDate = {{ extra_classes_by_date|safe }};
+const canceledClasses = {{ canceled_classes|safe }};
+const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 
+                    'July', 'August', 'September', 'October', 'November', 'December'];
+
+function formatDateStr(date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
+function getExtraClassesForDate(dateStr) {
+    return extraClassesByDate[dateStr] || [];
+}
+
+function initCalendar() {
+    renderCalendar();
+    // Show today's schedules by default
+    const today = new Date();
+    showDaySchedules(today, dayNames[today.getDay()], formatDateStr(today));
+}
+
+function renderCalendar() {
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth();
+    
+    // Update header
+    document.getElementById('calendarMonthYear').textContent = `${monthNames[month]} ${year}`;
+    
+    const grid = document.getElementById('calendarGrid');
+    grid.innerHTML = '';
+    
+    // Day headers
+    const shortDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    shortDays.forEach(day => {
+        const header = document.createElement('div');
+        header.style.cssText = 'text-align: center; font-weight: 600; color: #64748b; padding: 8px; font-size: 12px;';
+        header.textContent = day;
+        grid.appendChild(header);
+    });
+    
+    // Get first day of month and total days
+    const firstDay = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    
+    // Empty cells for days before month starts
+    for (let i = 0; i < firstDay; i++) {
+        const empty = document.createElement('div');
+        empty.style.cssText = 'padding: 8px;';
+        grid.appendChild(empty);
+    }
+    
+    // Day cells
+    for (let day = 1; day <= daysInMonth; day++) {
+        const date = new Date(year, month, day);
+        const dayOfWeek = dayNames[date.getDay()];
+        const dateStr = formatDateStr(date);
+        const isSelected = dateStr === selectedDateStr;
+        
+        const cell = document.createElement('div');
+        cell.style.cssText = 'text-align: center; padding: 8px; border-radius: 8px; cursor: pointer; position: relative; min-height: 40px; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 2px;';
+        
+        // Check for cancellations and extra classes
+        const hasCancellation = canceledClasses[dateStr] && canceledClasses[dateStr].length > 0;
+        const hasExtraClass = extraClassesByDate[dateStr] && extraClassesByDate[dateStr].length > 0;
+        
+        if (hasCancellation) {
+            cell.style.border = '2px solid #ef4444';
+        } else if (hasExtraClass) {
+            cell.style.border = '2px solid #10b981';
+        }
+        
+        cell.addEventListener('mouseenter', () => {
+            cell.style.backgroundColor = '#f1f5f9';
+        });
+        cell.addEventListener('mouseleave', () => {
+            if (isSelected) {
+                cell.style.backgroundColor = '#eff6ff';
+            } else {
+                cell.style.backgroundColor = '';
+            }
+        });
+        
+        // Day number container with selection highlight
+        const dayNum = document.createElement('span');
+        dayNum.textContent = day;
+        dayNum.style.fontSize = '14px';
+        
+        if (isSelected) {
+            dayNum.style.cssText = 'font-size: 14px; background-color: #2563eb; color: white; border-radius: 50%; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;';
+        }
+        
+        cell.appendChild(dayNum);
+        
+        // Get schedules and extra classes for this day
+        const weeklySchedules = (schedulesByDay[dayOfWeek] || []).map(s => ({...s, isExtra: false}));
+        const extraSchedules = getExtraClassesForDate(dateStr).map(s => ({...s, isExtra: true}));
+        const allSchedules = [...weeklySchedules, ...extraSchedules];
+        
+        // Schedule dots
+        if (allSchedules.length > 0) {
+            const dotsContainer = document.createElement('div');
+            dotsContainer.style.cssText = 'display: flex; gap: 2px; justify-content: center; flex-wrap: wrap;';
+            
+            allSchedules.forEach(schedule => {
+                const dot = document.createElement('span');
+                dot.style.cssText = 'width: 6px; height: 6px; border-radius: 50%; background-color: #3b82f6;';
+                
+                if (schedule.isExtra) {
+                    dot.style.backgroundColor = '#10b981'; // Green for extra
+                } else if (isScheduleCanceled(dateStr, schedule.class_id, schedule.start_time)) {
+                    dot.style.backgroundColor = '#ef4444'; // Red for canceled
+                }
+                
+                dotsContainer.appendChild(dot);
+            });
+            
+            cell.appendChild(dotsContainer);
+        }
+        
+        cell.onclick = () => showDaySchedules(date, dayOfWeek, dateStr);
+        grid.appendChild(cell);
+    }
+}
+
+function isScheduleCanceled(dateStr, classId, startTime) {
+    const canceled = canceledClasses[dateStr];
+    if (!canceled) return false;
+    
+    return canceled.some(c => c.class_id === classId && c.schedule_time === startTime);
+}
+
+function prevMonth() {
+    currentDate.setMonth(currentDate.getMonth() - 1);
+    renderCalendar();
+}
+
+function nextMonth() {
+    currentDate.setMonth(currentDate.getMonth() + 1);
+    renderCalendar();
+}
+
+function showDaySchedules(date, dayOfWeek, dateStr) {
+    // Update selected date and re-render calendar
+    selectedDateStr = dateStr;
+    renderCalendar();
+    
+    // Combine weekly and extra schedules
+    const weeklySchedules = (schedulesByDay[dayOfWeek] || []).map(s => ({...s, isExtra: false}));
+    const extraSchedules = getExtraClassesForDate(dateStr).map(s => ({...s, isExtra: true}));
+    const allSchedules = [...weeklySchedules, ...extraSchedules];
+    
+    document.getElementById('selectedDayTitle').textContent = `${dayOfWeek}, ${monthNames[date.getMonth()]} ${date.getDate()}`;
+    
+    const container = document.getElementById('selectedDaySchedules');
+    
+    if (allSchedules.length === 0) {
+        container.innerHTML = '<p class="text-muted">No classes scheduled for this day.</p>';
+        return;
+    }
+    
+    let html = '<div style="display: flex; flex-direction: column; gap: 12px;">';
+    
+    allSchedules.forEach(schedule => {
+        const isCanceled = !schedule.isExtra && isScheduleCanceled(dateStr, schedule.class_id, schedule.start_time);
+        const isExtra = schedule.isExtra;
+        
+        let borderColor = '#e2e8f0';
+        let bgColor = 'white';
+        let leftBorder = '';
+        
+        if (isCanceled) {
+            borderColor = '#ef4444';
+            bgColor = '#fef2f2';
+        } else if (isExtra) {
+            leftBorder = 'border-left: 4px solid #10b981;';
+        }
+        
+        html += `
+            <div style="padding: 16px; border: 1px solid ${borderColor}; border-radius: 8px; background-color: ${bgColor}; ${leftBorder}">
+                <div style="display: flex; justify-content: space-between; align-items: start;">
+                    <div style="flex: 1;">
+                        <h4 style="margin: 0 0 4px 0; font-size: 16px;">${schedule.class_name}</h4>
+                        <p style="margin: 0; color: #64748b; font-size: 14px;">
+                            🕐 ${formatTime(schedule.start_time)} - ${formatTime(schedule.end_time)}
+                        </p>
+                        ${isCanceled ? '<span style="display: inline-block; margin-top: 8px; padding: 4px 8px; background-color: #ef4444; color: white; border-radius: 4px; font-size: 12px; font-weight: 500;">CANCELED</span>' : ''}
+                        ${isExtra ? '<span style="display: inline-block; margin-top: 8px; padding: 4px 8px; background-color: #dcfce7; color: #16a34a; border-radius: 4px; font-size: 12px; font-weight: 500;">EXTRA CLASS</span>' : ''}
+                        ${isExtra && schedule.reason ? `<p style="font-size: 12px; color: #64748b; margin-top: 4px; font-style: italic;">${schedule.reason}</p>` : ''}
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    
+    html += '</div>';
+    container.innerHTML = html;
+}
+
+function formatTime(timeStr) {
+    const [hours, minutes] = timeStr.split(':');
+    const hour = parseInt(hours);
+    const ampm = hour >= 12 ? 'PM' : 'AM';
+    const hour12 = hour % 12 || 12;
+    return `${hour12}:${minutes} ${ampm}`;
+}
 </script>
 {% endblock %}

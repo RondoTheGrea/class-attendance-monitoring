@@ -3,8 +3,9 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.db.models import Count, Q
 from django.utils import timezone
+import json
 
-from professor.models import Class, StudentClassEnrollment, Announcement, AttendanceRecord
+from professor.models import Class, StudentClassEnrollment, Announcement, AttendanceRecord, Schedule, ExtraClass
 from .forms import JoinClassForm
 
 
@@ -40,9 +41,66 @@ def dashboard(request):
             'attendance_count': student_attendance,
         })
     
+    # Get all schedules for enrolled classes for the calendar view
+    enrolled_class_ids = [c.id for c in enrolled_classes]
+    all_schedules = Schedule.objects.filter(class_obj__id__in=enrolled_class_ids).select_related('class_obj')
+    
+    # Build a dictionary of day -> list of schedules for JavaScript
+    schedules_by_day = {}
+    for schedule in all_schedules:
+        day = schedule.day
+        if day not in schedules_by_day:
+            schedules_by_day[day] = []
+        schedules_by_day[day].append({
+            'id': schedule.id,
+            'class_id': schedule.class_obj.id,
+            'class_name': schedule.class_obj.subject,
+            'start_time': schedule.start_time.strftime('%H:%M'),
+            'end_time': schedule.end_time.strftime('%H:%M'),
+        })
+    
+    # Get all canceled classes for the calendar
+    canceled_records = AttendanceRecord.objects.filter(
+        class_obj__id__in=enrolled_class_ids,
+        canceled=True
+    ).select_related('class_obj')
+    
+    # Build a dictionary of date -> list of canceled schedule times
+    canceled_classes = {}
+    for record in canceled_records:
+        date_str = record.date.date().strftime('%Y-%m-%d')
+        if date_str not in canceled_classes:
+            canceled_classes[date_str] = []
+        canceled_classes[date_str].append({
+            'class_id': record.class_obj.id,
+            'class_name': record.class_obj.subject,
+            'schedule_time': record.schedule_time,
+        })
+    
+    # Get all extra classes for the calendar
+    all_extra_classes = ExtraClass.objects.filter(class_obj__id__in=enrolled_class_ids).select_related('class_obj')
+    
+    # Build a dictionary of date -> list of extra classes
+    extra_classes_by_date = {}
+    for extra in all_extra_classes:
+        date_str = extra.date.strftime('%Y-%m-%d')
+        if date_str not in extra_classes_by_date:
+            extra_classes_by_date[date_str] = []
+        extra_classes_by_date[date_str].append({
+            'id': extra.id,
+            'class_id': extra.class_obj.id,
+            'class_name': extra.class_obj.subject,
+            'start_time': extra.start_time.strftime('%H:%M'),
+            'end_time': extra.end_time.strftime('%H:%M'),
+            'reason': extra.reason or '',
+        })
+    
     context = {
         'classes': classes_with_stats,
         'active_tab': active_tab,
+        'schedules_by_day': json.dumps(schedules_by_day),
+        'extra_classes_by_date': json.dumps(extra_classes_by_date),
+        'canceled_classes': json.dumps(canceled_classes),
     }
     return render(request, 'student/dashboard.html', context)
 

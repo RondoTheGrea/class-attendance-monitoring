@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 import json
 
 from django.contrib.auth.models import User
-from .models import Class, Schedule, Announcement, AttendanceRecord, AttendanceEntry, StudentClassEnrollment
+from .models import Class, Schedule, Announcement, AttendanceRecord, AttendanceEntry, StudentClassEnrollment, ExtraClass
 from .forms import ClassForm, ScheduleForm, AnnouncementForm
 
 
@@ -38,10 +38,67 @@ def dashboard(request):
         announcement_count=Count('announcements'),
         attendance_count=Count('attendance_records')
     )
+    
+    # Get all schedules for the calendar view
+    all_schedules = Schedule.objects.filter(class_obj__professor=request.user).select_related('class_obj')
+    
+    # Build a dictionary of day -> list of schedules for JavaScript
+    schedules_by_day = {}
+    for schedule in all_schedules:
+        day = schedule.day
+        if day not in schedules_by_day:
+            schedules_by_day[day] = []
+        schedules_by_day[day].append({
+            'id': schedule.id,
+            'class_id': schedule.class_obj.id,
+            'class_name': schedule.class_obj.subject,
+            'start_time': schedule.start_time.strftime('%H:%M'),
+            'end_time': schedule.end_time.strftime('%H:%M'),
+        })
+    
+    # Get all extra classes for the calendar
+    all_extra_classes = ExtraClass.objects.filter(class_obj__professor=request.user).select_related('class_obj')
+    
+    # Build a dictionary of date -> list of extra classes
+    extra_classes_by_date = {}
+    for extra in all_extra_classes:
+        date_str = extra.date.strftime('%Y-%m-%d')
+        if date_str not in extra_classes_by_date:
+            extra_classes_by_date[date_str] = []
+        extra_classes_by_date[date_str].append({
+            'id': extra.id,
+            'class_id': extra.class_obj.id,
+            'class_name': extra.class_obj.subject,
+            'start_time': extra.start_time.strftime('%H:%M'),
+            'end_time': extra.end_time.strftime('%H:%M'),
+            'reason': extra.reason or '',
+        })
+    
+    # Get all canceled classes for the calendar
+    canceled_records = AttendanceRecord.objects.filter(
+        class_obj__professor=request.user,
+        canceled=True
+    ).select_related('class_obj')
+    
+    # Build a dictionary of date -> list of canceled schedule times
+    canceled_classes = {}
+    for record in canceled_records:
+        # Use date() to ensure we get just the date part, avoiding timezone issues
+        date_str = record.date.date().strftime('%Y-%m-%d')
+        if date_str not in canceled_classes:
+            canceled_classes[date_str] = []
+        canceled_classes[date_str].append({
+            'class_id': record.class_obj.id,
+            'class_name': record.class_obj.subject,
+            'schedule_time': record.schedule_time,
+        })
 
     context = {
         'classes': classes,
         'active_tab': active_tab,
+        'schedules_by_day': json.dumps(schedules_by_day),
+        'extra_classes_by_date': json.dumps(extra_classes_by_date),
+        'canceled_classes': json.dumps(canceled_classes),
     }
     return render(request, 'professor/dashboard.html', context)
 
@@ -57,11 +114,17 @@ def class_detail(request, class_id):
     # Get schedules
     schedules = class_obj.schedules.all()
     
+    # Get extra classes (one-time sessions)
+    extra_classes = class_obj.extra_classes.all()
+    
     # Get announcements
     announcements = class_obj.announcements.all()
     
     # Get attendance records
     attendance_records = class_obj.attendance_records.all()
+    
+    # Get enrolled students
+    enrolled_students = class_obj.enrolled_students.select_related('student').all()
     
     # Calculate stats
     total_students = class_obj.get_total_students()
@@ -77,15 +140,22 @@ def class_detail(request, class_id):
         ).count()
         attendance_rate = round((total_present / total_possible) * 100) if total_possible > 0 else 0
     
+    # Get today's date for extra class badges
+    from datetime import date
+    today = date.today()
+    
     context = {
         'class_obj': class_obj,
         'schedules': schedules,
+        'extra_classes': extra_classes,
         'announcements': announcements,
         'attendance_records': attendance_records,
+        'enrolled_students': enrolled_students,
         'active_tab': active_tab,
         'total_students': total_students,
         'total_sessions': total_sessions,
         'attendance_rate': attendance_rate,
+        'today': today,
     }
     
     return render(request, 'professor/class_detail.html', context)
@@ -172,6 +242,163 @@ def delete_schedule(request, class_id, schedule_id):
     schedule.delete()
     messages.success(request, 'Schedule deleted successfully!')
     return redirect('professor:class_detail', class_id=class_id)
+
+
+@login_required
+def add_extra_class(request, class_id):
+    """Add an extra/one-time class session"""
+    class_obj = get_object_or_404(Class, id=class_id, professor=request.user)
+    
+    if request.method == 'POST':
+        date_str = request.POST.get('date')
+        start_time = request.POST.get('start_time')
+        end_time = request.POST.get('end_time')
+        reason = request.POST.get('reason', '')
+        
+        if date_str and start_time and end_time:
+            from datetime import datetime
+            try:
+                date_obj = datetime.strptime(date_str, '%Y-%m-%d').date()
+                start_time_obj = datetime.strptime(start_time, '%H:%M').time()
+                end_time_obj = datetime.strptime(end_time, '%H:%M').time()
+                
+                # Check for duplicate
+                if ExtraClass.objects.filter(
+                    class_obj=class_obj, 
+                    date=date_obj, 
+                    start_time=start_time_obj, 
+                    end_time=end_time_obj
+                ).exists():
+                    messages.error(request, 'An extra class with the same date and time already exists.')
+                else:
+                    extra = ExtraClass.objects.create(
+                        class_obj=class_obj,
+                        date=date_obj,
+                        start_time=start_time_obj,
+                        end_time=end_time_obj,
+                        reason=reason
+                    )
+                    
+                    # Create announcement for this extra class
+                    def format_time_12h(t):
+                        hour = t.hour
+                        minute = t.minute
+                        ampm = 'PM' if hour >= 12 else 'AM'
+                        hour12 = hour % 12 or 12
+                        return f"{hour12}:{minute:02d} {ampm}"
+                    
+                    formatted_date = date_obj.strftime('%B %d, %Y')
+                    time_range = f"{format_time_12h(start_time_obj)} - {format_time_12h(end_time_obj)}"
+                    announcement_title = f"Extra Class: {formatted_date} ({time_range})"
+                    announcement_content = reason if reason else "An extra class session has been scheduled."
+                    
+                    Announcement.objects.create(
+                        class_obj=class_obj,
+                        title=announcement_title,
+                        content=announcement_content
+                    )
+                    
+                    messages.success(request, 'Extra class added and announcement created!')
+            except ValueError as e:
+                messages.error(request, f'Invalid date or time format: {e}')
+        else:
+            messages.error(request, 'Please fill in all required fields.')
+    
+    return redirect('professor:class_detail', class_id=class_id)
+
+
+@login_required
+def delete_extra_class(request, class_id, extra_class_id):
+    """Delete an extra class"""
+    class_obj = get_object_or_404(Class, id=class_id, professor=request.user)
+    extra_class = get_object_or_404(ExtraClass, id=extra_class_id, class_obj=class_obj)
+    extra_class.delete()
+    messages.success(request, 'Extra class deleted successfully!')
+    return redirect('professor:class_detail', class_id=class_id)
+
+
+@login_required
+def kick_student(request, class_id, enrollment_id):
+    """Remove a student from a class"""
+    class_obj = get_object_or_404(Class, id=class_id, professor=request.user)
+    enrollment = get_object_or_404(StudentClassEnrollment, id=enrollment_id, class_obj=class_obj)
+    
+    if request.method == 'POST':
+        student_name = enrollment.student.get_full_name() or enrollment.student.username
+        enrollment.delete()
+        messages.success(request, f'{student_name} has been removed from the class.')
+    
+    return redirect('professor:class_detail', class_id=class_id)
+
+
+@login_required
+def cancel_class(request):
+    """Cancel a class for a specific date"""
+    if request.method == 'POST':
+        schedule_id = request.POST.get('schedule_id')
+        cancel_date = request.POST.get('cancel_date')  # Format: YYYY-MM-DD
+        
+        schedule = get_object_or_404(Schedule, id=schedule_id, class_obj__professor=request.user)
+        
+        # Parse the date - use noon to avoid timezone date boundary issues
+        from datetime import datetime
+        date_obj = datetime.strptime(cancel_date, '%Y-%m-%d')
+        date_obj = date_obj.replace(hour=12, minute=0, second=0)
+        
+        schedule_time_str = f"{schedule.start_time.strftime('%H:%M')} - {schedule.end_time.strftime('%H:%M')}"
+        
+        # Get announcement data (only for canceling, not uncanceling)
+        announcement_title = request.POST.get('announcement_title', '')
+        announcement_content = request.POST.get('announcement_content', '')
+        
+        # Check if there's already an attendance record for this schedule on this date
+        existing = AttendanceRecord.objects.filter(
+            class_obj=schedule.class_obj,
+            date__date=date_obj.date(),
+            schedule_time=schedule_time_str
+        ).first()
+        
+        if existing:
+            # Toggle the canceled status
+            existing.canceled = not existing.canceled
+            existing.save()
+            if existing.canceled:
+                # Create announcement when canceling
+                if announcement_title and announcement_content:
+                    Announcement.objects.create(
+                        class_obj=schedule.class_obj,
+                        title=announcement_title,
+                        content=announcement_content
+                    )
+                messages.success(request, f'Class "{schedule.class_obj.subject}" has been canceled for {cancel_date}.')
+            else:
+                # Create announcement when uncanceling
+                if announcement_title and announcement_content:
+                    Announcement.objects.create(
+                        class_obj=schedule.class_obj,
+                        title=announcement_title,
+                        content=announcement_content
+                    )
+                messages.success(request, f'Class "{schedule.class_obj.subject}" has been restored for {cancel_date}.')
+        else:
+            # Create a new attendance record marked as canceled
+            AttendanceRecord.objects.create(
+                class_obj=schedule.class_obj,
+                date=date_obj,
+                schedule_time=schedule_time_str,
+                canceled=True
+            )
+            # Create announcement when canceling
+            if announcement_title and announcement_content:
+                Announcement.objects.create(
+                    class_obj=schedule.class_obj,
+                    title=announcement_title,
+                    content=announcement_content
+                )
+            messages.success(request, f'Class "{schedule.class_obj.subject}" has been canceled for {cancel_date}.')
+    
+    from django.urls import reverse
+    return redirect(reverse('professor:dashboard') + '?tab=schedules')
 
 
 @login_required

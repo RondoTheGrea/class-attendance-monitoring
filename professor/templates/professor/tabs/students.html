@@ -1,0 +1,55 @@
+<div>
+    {% if enrolled_students %}
+        <div class="card">
+            <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+                <h3>Enrolled Students</h3>
+                <span class="badge badge-primary">{{ enrolled_students|length }} student{{ enrolled_students|length|pluralize }}</span>
+            </div>
+            <div class="card-content" style="padding: 0;">
+                <div class="student-list" style="display: block;">
+                    {% for enrollment in enrolled_students %}
+                    <div class="student-item" style="display: flex; justify-content: space-between; align-items: center; padding: 16px 24px; border-bottom: 1px solid #e2e8f0;">
+                        <div class="student-info" style="display: flex; align-items: center; gap: 12px;">
+                            <div style="background-color: #e0e7ff; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;">
+                                <span style="font-size: 18px;">👤</span>
+                            </div>
+                            <div>
+                                <p class="student-name" style="font-weight: 600; color: #0f172a; margin: 0;">
+                                    {{ enrollment.student.get_full_name|default:enrollment.student.username }}
+                                </p>
+                                <p class="student-id" style="font-size: 14px; color: #64748b; margin: 0;">
+                                    {{ enrollment.student.email|default:enrollment.student.username }}
+                                </p>
+                            </div>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 16px;">
+                            <div style="text-align: right;">
+                                <p style="font-size: 12px; color: #64748b; margin: 0;">Enrolled</p>
+                                <p style="font-size: 14px; color: #0f172a; margin: 0;">{{ enrollment.enrolled_at|date:"M d, Y" }}</p>
+                            </div>
+                            <form method="post" action="{% url 'professor:kick_student' class_obj.id enrollment.id %}" style="margin: 0;" onsubmit="return confirm('Are you sure you want to remove this student from the class?');">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-ghost btn-sm" style="color: #dc2626;" title="Remove student">
+                                    ✕
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    {% else %}
+        <div class="card">
+            <div class="card-content" style="padding: 64px 24px; text-align: center;">
+                <div style="background-color: #f1f5f9; border-radius: 50%; padding: 24px; width: fit-content; margin: 0 auto 16px;">
+                    <span style="font-size: 48px;">👥</span>
+                </div>
+                <p style="color: #64748b; font-weight: 500; margin-bottom: 8px;">No students enrolled yet</p>
+                <p class="text-sm text-muted" style="max-width: 500px; margin: 0 auto;">
+                    Share the class code <strong style="color: #2563eb; font-family: 'Courier New', monospace;">{{ class_obj.class_code }}</strong> with your students so they can join this class.
+                </p>
+            </div>
+        </div>
+    {% endif %}
+</div>

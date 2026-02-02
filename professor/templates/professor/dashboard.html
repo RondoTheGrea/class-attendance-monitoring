@@ -74,22 +74,411 @@
         <!-- Main Content Area -->
         <main class="dashboard-main" style="flex: 1; padding: 32px;">
             {% if active_tab == 'schedules' %}
-                <!-- Schedules Tab (Empty for now) -->
+                <!-- Schedules Tab with Calendar -->
                 <div style="margin-bottom: 32px;">
                     <h2>Schedules</h2>
                     <p class="text-muted" style="margin-top: 4px;">
                         View all your class schedules in one place.
                     </p>
                 </div>
-                <div class="card">
-                    <div class="card-content" style="padding: 64px 24px; text-align: center;">
-                        <div style="background-color: #f1f5f9; border-radius: 50%; padding: 24px; width: fit-content; margin: 0 auto 16px;">
-                            <span style="font-size: 48px;">📅</span>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+                    <!-- Calendar -->
+                    <div class="card">
+                        <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+                            <button type="button" class="btn btn-outline" style="padding: 8px 12px;" onclick="changeMonth(-1)">← Prev</button>
+                            <h3 id="calendar-month-year" style="margin: 0;"></h3>
+                            <button type="button" class="btn btn-outline" style="padding: 8px 12px;" onclick="changeMonth(1)">Next →</button>
                         </div>
-                        <p style="color: #64748b; font-weight: 500; margin-bottom: 4px;">Schedule overview coming soon</p>
-                        <p class="text-sm text-muted">This feature is under development.</p>
+                        <div class="card-content">
+                            <!-- Calendar Grid -->
+                            <div class="calendar-grid" style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px;">
+                                <!-- Day Headers -->
+                                <div class="calendar-header" style="text-align: center; font-weight: 600; color: #64748b; padding: 8px; font-size: 12px;">Sun</div>
+                                <div class="calendar-header" style="text-align: center; font-weight: 600; color: #64748b; padding: 8px; font-size: 12px;">Mon</div>
+                                <div class="calendar-header" style="text-align: center; font-weight: 600; color: #64748b; padding: 8px; font-size: 12px;">Tue</div>
+                                <div class="calendar-header" style="text-align: center; font-weight: 600; color: #64748b; padding: 8px; font-size: 12px;">Wed</div>
+                                <div class="calendar-header" style="text-align: center; font-weight: 600; color: #64748b; padding: 8px; font-size: 12px;">Thu</div>
+                                <div class="calendar-header" style="text-align: center; font-weight: 600; color: #64748b; padding: 8px; font-size: 12px;">Fri</div>
+                                <div class="calendar-header" style="text-align: center; font-weight: 600; color: #64748b; padding: 8px; font-size: 12px;">Sat</div>
+                            </div>
+                            <div id="calendar-days" style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px;"></div>
+                        </div>
+                    </div>
+
+                    <!-- Selected Day Details -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 id="selected-day-title" style="margin: 0;">Select a Date</h3>
+                        </div>
+                        <div class="card-content" id="selected-day-content">
+                            <p class="text-muted">Click on a date to view scheduled classes.</p>
+                        </div>
                     </div>
                 </div>
+
+                <!-- Legend -->
+                <div class="card" style="margin-top: 24px;">
+                    <div class="card-content" style="display: flex; gap: 24px; flex-wrap: wrap; padding: 16px 24px;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span style="width: 12px; height: 12px; background-color: #3b82f6; border-radius: 50%;"></span>
+                            <span class="text-sm">Scheduled Class</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span style="width: 12px; height: 12px; background-color: #10b981; border-radius: 50%;"></span>
+                            <span class="text-sm">Extra Class</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span style="width: 12px; height: 12px; background-color: #ef4444; border-radius: 50%;"></span>
+                            <span class="text-sm">Canceled Class</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span style="width: 24px; height: 24px; border: 2px solid #10b981; border-radius: 4px;"></span>
+                            <span class="text-sm">Day with Extra Class</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span style="width: 24px; height: 24px; border: 2px solid #ef4444; border-radius: 4px;"></span>
+                            <span class="text-sm">Day with Cancellation</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Cancel Class Modal -->
+                <div id="cancel-class-modal" class="modal-overlay" style="display: none;">
+                    <div class="modal-dialog" onclick="event.stopPropagation();">
+                        <div class="modal-header">
+                            <h2>Cancel Class</h2>
+                            <p class="text-muted" style="margin-top: 4px;">This will create an announcement to notify students.</p>
+                            <button class="close-button" type="button" onclick="closeCancelModal()">✕</button>
+                        </div>
+
+                        <form method="post" action="{% url 'professor:cancel_class' %}" class="modal-body">
+                            {% csrf_token %}
+                            <input type="hidden" name="schedule_id" id="cancel-schedule-id">
+                            <input type="hidden" name="cancel_date" id="cancel-date">
+                            
+                            <div class="form-group">
+                                <label>Announcement Title</label>
+                                <input type="text" name="announcement_title" id="cancel-announcement-title" class="form-input" readonly style="background-color: #f1f5f9;">
+                            </div>
+
+                            <div class="form-group">
+                                <label>Reason / Message <span style="color: #dc2626;">*</span></label>
+                                <textarea name="announcement_content" id="cancel-announcement-content" class="form-input" rows="4" required placeholder="Please provide a reason for the cancellation..."></textarea>
+                            </div>
+
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-outline" onclick="closeCancelModal()">Close</button>
+                                <button type="submit" class="btn" style="background-color: #dc2626; color: white;">Cancel Class</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Uncancel Class Modal -->
+                <div id="uncancel-class-modal" class="modal-overlay" style="display: none;">
+                    <div class="modal-dialog" onclick="event.stopPropagation();">
+                        <div class="modal-header">
+                            <h2>Restore Class</h2>
+                            <p class="text-muted" style="margin-top: 4px;">This will create an announcement to notify students that the class is back on.</p>
+                            <button class="close-button" type="button" onclick="closeUncancelModal()">✕</button>
+                        </div>
+
+                        <form method="post" action="{% url 'professor:cancel_class' %}" class="modal-body">
+                            {% csrf_token %}
+                            <input type="hidden" name="schedule_id" id="uncancel-schedule-id">
+                            <input type="hidden" name="cancel_date" id="uncancel-date">
+                            
+                            <div class="form-group">
+                                <label>Announcement Title</label>
+                                <input type="text" name="announcement_title" id="uncancel-announcement-title" class="form-input" readonly style="background-color: #f1f5f9;">
+                            </div>
+
+                            <div class="form-group">
+                                <label>Message <span style="color: #dc2626;">*</span></label>
+                                <textarea name="announcement_content" id="uncancel-announcement-content" class="form-input" rows="4" required placeholder="Provide additional information about the class resuming..."></textarea>
+                            </div>
+
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-outline" onclick="closeUncancelModal()">Close</button>
+                                <button type="submit" class="btn" style="background-color: #10b981; color: white;">Restore Class</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <script>
+                    const schedulesByDay = {{ schedules_by_day|safe }};
+                    const extraClassesByDate = {{ extra_classes_by_date|safe }};
+                    const canceledClasses = {{ canceled_classes|safe }};
+                    console.log('Schedules by day:', schedulesByDay);
+                    console.log('Extra classes by date:', extraClassesByDate);
+                    console.log('Canceled classes:', canceledClasses);
+                    const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+                    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+                    
+                    let currentDate = new Date();
+                    let currentMonth = currentDate.getMonth();
+                    let currentYear = currentDate.getFullYear();
+                    let selectedDateStr = formatDateKey(new Date()); // Track selected date
+
+                    function changeMonth(delta) {
+                        currentMonth += delta;
+                        if (currentMonth < 0) {
+                            currentMonth = 11;
+                            currentYear--;
+                        } else if (currentMonth > 11) {
+                            currentMonth = 0;
+                            currentYear++;
+                        }
+                        renderCalendar();
+                    }
+
+                    function formatDateKey(date) {
+                        const year = date.getFullYear();
+                        const month = String(date.getMonth() + 1).padStart(2, '0');
+                        const day = String(date.getDate()).padStart(2, '0');
+                        return `${year}-${month}-${day}`;
+                    }
+
+                    function getCanceledForDate(date) {
+                        const dateKey = formatDateKey(date);
+                        return canceledClasses[dateKey] || [];
+                    }
+
+                    function isScheduleCanceled(date, classId, scheduleTime) {
+                        const canceled = getCanceledForDate(date);
+                        console.log('Checking if canceled:', classId, scheduleTime, 'in', canceled);
+                        return canceled.some(c => c.class_id === classId && c.schedule_time === scheduleTime);
+                    }
+
+                    function hasCanceledClasses(date) {
+                        return getCanceledForDate(date).length > 0;
+                    }
+
+                    function getExtraClassesForDate(date) {
+                        const dateKey = formatDateKey(date);
+                        return extraClassesByDate[dateKey] || [];
+                    }
+
+                    function getScheduleCountForDate(date) {
+                        const dayName = dayNames[date.getDay()];
+                        const weeklyCount = schedulesByDay[dayName] ? schedulesByDay[dayName].length : 0;
+                        const extraCount = getExtraClassesForDate(date).length;
+                        return weeklyCount + extraCount;
+                    }
+
+                    function getSchedulesForDate(date) {
+                        const dayName = dayNames[date.getDay()];
+                        const weeklySchedules = (schedulesByDay[dayName] || []).map(s => ({...s, isExtra: false}));
+                        const extraSchedules = getExtraClassesForDate(date).map(s => ({...s, isExtra: true}));
+                        return [...weeklySchedules, ...extraSchedules];
+                    }
+
+                    function showDaySchedules(date) {
+                        const schedules = getSchedulesForDate(date);
+                        const title = document.getElementById('selected-day-title');
+                        const content = document.getElementById('selected-day-content');
+
+                        const dayName = dayNames[date.getDay()];
+                        const dateKey = formatDateKey(date);
+                        
+                        // Update selected date and re-render calendar
+                        selectedDateStr = dateKey;
+                        renderCalendar();
+                        
+                        title.textContent = `${dayName}, ${monthNames[date.getMonth()]} ${date.getDate()}`;
+
+                        if (schedules.length === 0) {
+                            content.innerHTML = `
+                                <div style="text-align: center; padding: 32px; color: #64748b;">
+                                    <p>No classes scheduled for this day.</p>
+                                </div>
+                            `;
+                        } else {
+                            content.innerHTML = schedules.map(s => {
+                                const scheduleTime = `${s.start_time} - ${s.end_time}`;
+                                const isCanceled = !s.isExtra && isScheduleCanceled(date, s.class_id, scheduleTime);
+                                const isExtra = s.isExtra;
+                                
+                                let itemBgColor = '';
+                                let iconBgColor = '#e0e7ff';
+                                let icon = '📚';
+                                let textColor = 'color: #0f172a;';
+                                
+                                if (isCanceled) {
+                                    itemBgColor = 'background-color: #fef2f2; border-left: 4px solid #dc2626;';
+                                    iconBgColor = '#fee2e2';
+                                    icon = '❌';
+                                    textColor = 'color: #991b1b;';
+                                } else if (isExtra) {
+                                    itemBgColor = 'border-left: 4px solid #10b981;';
+                                    iconBgColor = '#dcfce7';
+                                    icon = '📌';
+                                }
+                                
+                                const formattedDate = `${monthNames[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`;
+                                
+                                // Extra classes don't have cancel/uncancel buttons (they can be deleted from the schedule tab)
+                                let actionButton = '';
+                                if (!isExtra) {
+                                    if (isCanceled) {
+                                        actionButton = `
+                                            <button type="button" onclick="openUncancelModal('${s.id}', '${dateKey}', '${s.class_name}', '${formattedDate}', '${formatTime(s.start_time)} - ${formatTime(s.end_time)}')" class="btn btn-sm" style="background-color: #dcfce7; color: #166534; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 12px;">
+                                                Uncancel
+                                            </button>
+                                        `;
+                                    } else {
+                                        actionButton = `
+                                            <button type="button" onclick="openCancelModal('${s.id}', '${dateKey}', '${s.class_name}', '${formattedDate}', '${formatTime(s.start_time)} - ${formatTime(s.end_time)}')" class="btn btn-sm" style="background-color: #fee2e2; color: #dc2626; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 12px;">
+                                                Cancel
+                                            </button>
+                                        `;
+                                    }
+                                }
+                                
+                                return `
+                                <div class="schedule-item" style="display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid #e2e8f0; ${itemBgColor}">
+                                    <div style="background-color: ${iconBgColor}; border-radius: 8px; padding: 12px; display: flex; align-items: center; justify-content: center;">
+                                        <span style="font-size: 20px;">${icon}</span>
+                                    </div>
+                                    <div style="flex: 1;">
+                                        <p style="font-weight: 600; ${textColor} margin: 0;">${s.class_name}</p>
+                                        <p style="font-size: 14px; color: #64748b; margin: 4px 0 0 0;">🕐 ${formatTime(s.start_time)} - ${formatTime(s.end_time)}</p>
+                                        ${isCanceled ? '<span class="badge" style="background-color: #fee2e2; color: #dc2626; font-size: 11px; padding: 2px 8px; border-radius: 4px; margin-top: 4px; display: inline-block;">CANCELED</span>' : ''}
+                                        ${isExtra ? '<span class="badge" style="background-color: #dcfce7; color: #16a34a; font-size: 11px; padding: 2px 8px; border-radius: 4px; margin-top: 4px; display: inline-block;">EXTRA CLASS</span>' : ''}
+                                        ${isExtra && s.reason ? `<p style="font-size: 12px; color: #64748b; margin-top: 4px; font-style: italic;">${s.reason}</p>` : ''}
+                                    </div>
+                                    ${actionButton}
+                                </div>
+                            `}).join('');
+                        }
+                    }
+
+                    function formatTime(time24) {
+                        const [hours, minutes] = time24.split(':');
+                        const h = parseInt(hours);
+                        const ampm = h >= 12 ? 'PM' : 'AM';
+                        const h12 = h % 12 || 12;
+                        return `${h12}:${minutes} ${ampm}`;
+                    }
+
+                    function renderCalendar() {
+                        const monthYearEl = document.getElementById('calendar-month-year');
+                        const daysContainer = document.getElementById('calendar-days');
+
+                        monthYearEl.textContent = `${monthNames[currentMonth]} ${currentYear}`;
+
+                        const firstDay = new Date(currentYear, currentMonth, 1);
+                        const lastDay = new Date(currentYear, currentMonth + 1, 0);
+                        const startDayOfWeek = firstDay.getDay();
+                        const totalDays = lastDay.getDate();
+
+                        let html = '';
+
+                        // Empty cells for days before the first day of the month
+                        for (let i = 0; i < startDayOfWeek; i++) {
+                            html += '<div class="calendar-day empty" style="padding: 8px; min-height: 60px;"></div>';
+                        }
+
+                        // Days of the month
+                        for (let day = 1; day <= totalDays; day++) {
+                            const date = new Date(currentYear, currentMonth, day);
+                            const dateStr = formatDateKey(date);
+                            const scheduleCount = getScheduleCountForDate(date);
+                            const canceledCount = getCanceledForDate(date).length;
+                            const hasCanceled = canceledCount > 0;
+                            const hasExtraClasses = getExtraClassesForDate(date).length > 0;
+                            const isSelected = dateStr === selectedDateStr;
+
+                            const selectedStyle = isSelected ? 'background-color: #2563eb; color: white; border-radius: 50%; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; margin: 0 auto;' : '';
+                            let borderStyle = '';
+                            if (hasCanceled) {
+                                borderStyle = 'border: 2px solid #dc2626;';
+                            } else if (hasExtraClasses) {
+                                borderStyle = 'border: 2px solid #10b981;';
+                            }
+
+                            let dotsHtml = '';
+                            if (scheduleCount > 0) {
+                                const schedules = getSchedulesForDate(date);
+                                const dots = [];
+                                for (let i = 0; i < Math.min(schedules.length, 5); i++) {
+                                    const s = schedules[i];
+                                    const scheduleTime = `${s.start_time} - ${s.end_time}`;
+                                    const isCanceled = !s.isExtra && isScheduleCanceled(date, s.class_id, scheduleTime);
+                                    let dotColor = '#3b82f6'; // Blue for regular
+                                    if (isCanceled) {
+                                        dotColor = '#dc2626'; // Red for canceled
+                                    } else if (s.isExtra) {
+                                        dotColor = '#10b981'; // Green for extra
+                                    }
+                                    dots.push(`<span style="width: 6px; height: 6px; border-radius: 50%; background-color: ${dotColor};"></span>`);
+                                }
+                                dotsHtml = `<div style="display: flex; gap: 2px; justify-content: center; margin-top: 4px;">${dots.join('')}</div>`;
+                            }
+
+                            html += `
+                                <div class="calendar-day" 
+                                     onclick="showDaySchedules(new Date(${currentYear}, ${currentMonth}, ${day}))"
+                                     style="padding: 8px; min-height: 60px; text-align: center; cursor: pointer; border-radius: 8px; transition: background-color 0.2s; ${borderStyle}"
+                                     onmouseover="this.style.backgroundColor='#f1f5f9'"
+                                     onmouseout="this.style.backgroundColor='${isSelected ? '#eff6ff' : 'transparent'}'">
+                                    <div style="${selectedStyle}">${day}</div>
+                                    ${dotsHtml}
+                                </div>
+                            `;
+                        }
+
+                        daysContainer.innerHTML = html;
+                    }
+
+                    // Initialize calendar
+                    document.addEventListener('DOMContentLoaded', function() {
+                        renderCalendar();
+                        // Show today's schedules by default
+                        showDaySchedules(new Date());
+                    });
+
+                    // Cancel Modal Functions
+                    function openCancelModal(scheduleId, cancelDate, className, formattedDate, timeRange) {
+                        document.getElementById('cancel-schedule-id').value = scheduleId;
+                        document.getElementById('cancel-date').value = cancelDate;
+                        document.getElementById('cancel-announcement-title').value = `Class Canceled: ${formattedDate} (${timeRange})`;
+                        document.getElementById('cancel-announcement-content').value = '';
+                        document.getElementById('cancel-class-modal').style.display = 'flex';
+                    }
+
+                    function closeCancelModal() {
+                        document.getElementById('cancel-class-modal').style.display = 'none';
+                    }
+
+                    // Uncancel Modal Functions
+                    function openUncancelModal(scheduleId, cancelDate, className, formattedDate, timeRange) {
+                        document.getElementById('uncancel-schedule-id').value = scheduleId;
+                        document.getElementById('uncancel-date').value = cancelDate;
+                        document.getElementById('uncancel-announcement-title').value = `Class Resumed: ${formattedDate} (${timeRange})`;
+                        document.getElementById('uncancel-announcement-content').value = '';
+                        document.getElementById('uncancel-class-modal').style.display = 'flex';
+                    }
+
+                    function closeUncancelModal() {
+                        document.getElementById('uncancel-class-modal').style.display = 'none';
+                    }
+
+                    // Close modals when clicking outside
+                    document.getElementById('cancel-class-modal').addEventListener('click', function(e) {
+                        if (e.target === this) {
+                            closeCancelModal();
+                        }
+                    });
+
+                    document.getElementById('uncancel-class-modal').addEventListener('click', function(e) {
+                        if (e.target === this) {
+                            closeUncancelModal();
+                        }
+                    });
+                </script>
             {% else %}
                 <!-- Classes Tab -->
                 {% if classes %}

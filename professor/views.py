@@ -195,6 +195,25 @@ def edit_class(request, class_id):
     return render(request, 'professor/edit_class_modal.html', {'form': form, 'class_obj': class_obj})
 
 
+def format_time_12h(t):
+    """Helper to format time in 12-hour format"""
+    hour = t.hour
+    minute = t.minute
+    ampm = 'PM' if hour >= 12 else 'AM'
+    hour12 = hour % 12 or 12
+    return f"{hour12}:{minute:02d} {ampm}"
+
+
+def check_time_overlap(start1, end1, start2, end2):
+    """Check if two time ranges overlap. Times should be in minutes from midnight."""
+    return (start1 < end2) and (end1 > start2)
+
+
+def time_to_minutes(t):
+    """Convert time object to minutes from midnight"""
+    return t.hour * 60 + t.minute
+
+
 @login_required
 def add_schedule(request, class_id):
     """Add a schedule to a class"""
@@ -206,27 +225,34 @@ def add_schedule(request, class_id):
             schedule = form.save(commit=False)
             schedule.class_obj = class_obj
             
-            # Check for conflicts
+            # Validate times
+            if schedule.start_time >= schedule.end_time:
+                messages.error(request, '⚠️ Invalid time range: Start time must be before end time.')
+                return redirect('professor:class_detail', class_id=class_id)
+            
+            new_start = time_to_minutes(schedule.start_time)
+            new_end = time_to_minutes(schedule.end_time)
+            
+            # Check for conflicts with existing weekly schedules on same day
             existing_schedules = Schedule.objects.filter(
                 class_obj=class_obj,
                 day=schedule.day
             )
             
-            start_minutes = schedule.start_time.hour * 60 + schedule.start_time.minute
-            end_minutes = schedule.end_time.hour * 60 + schedule.end_time.minute
-            
             for existing in existing_schedules:
-                existing_start = existing.start_time.hour * 60 + existing.start_time.minute
-                existing_end = existing.end_time.hour * 60 + existing.end_time.minute
+                existing_start = time_to_minutes(existing.start_time)
+                existing_end = time_to_minutes(existing.end_time)
                 
-                if (start_minutes >= existing_start and start_minutes < existing_end) or \
-                   (end_minutes > existing_start and end_minutes <= existing_end) or \
-                   (start_minutes <= existing_start and end_minutes >= existing_end):
-                    messages.error(request, 'This schedule conflicts with an existing schedule on the same day.')
+                if check_time_overlap(new_start, new_end, existing_start, existing_end):
+                    conflict_time = f"{format_time_12h(existing.start_time)} - {format_time_12h(existing.end_time)}"
+                    messages.error(
+                        request, 
+                        f'⚠️ Schedule Conflict: This time overlaps with an existing {schedule.day} schedule ({conflict_time}). Please choose a different time.'
+                    )
                     return redirect('professor:class_detail', class_id=class_id)
             
             schedule.save()
-            messages.success(request, 'Schedule added successfully!')
+            messages.success(request, '✅ Weekly schedule added successfully!')
             return redirect('professor:class_detail', class_id=class_id)
     else:
         form = ScheduleForm()
@@ -262,47 +288,80 @@ def add_extra_class(request, class_id):
                 start_time_obj = datetime.strptime(start_time, '%H:%M').time()
                 end_time_obj = datetime.strptime(end_time, '%H:%M').time()
                 
-                # Check for duplicate
-                if ExtraClass.objects.filter(
-                    class_obj=class_obj, 
-                    date=date_obj, 
-                    start_time=start_time_obj, 
-                    end_time=end_time_obj
-                ).exists():
-                    messages.error(request, 'An extra class with the same date and time already exists.')
-                else:
-                    extra = ExtraClass.objects.create(
-                        class_obj=class_obj,
-                        date=date_obj,
-                        start_time=start_time_obj,
-                        end_time=end_time_obj,
-                        reason=reason
-                    )
+                # Validate times
+                if start_time_obj >= end_time_obj:
+                    messages.error(request, '⚠️ Invalid time range: Start time must be before end time.')
+                    return redirect('professor:class_detail', class_id=class_id)
+                
+                new_start = time_to_minutes(start_time_obj)
+                new_end = time_to_minutes(end_time_obj)
+                
+                # Get day of week for the selected date
+                day_names = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+                day_of_week = day_names[date_obj.weekday()]
+                
+                # Check for conflicts with weekly schedules on this day of week
+                weekly_schedules = Schedule.objects.filter(
+                    class_obj=class_obj,
+                    day=day_of_week
+                )
+                
+                for schedule in weekly_schedules:
+                    sched_start = time_to_minutes(schedule.start_time)
+                    sched_end = time_to_minutes(schedule.end_time)
                     
-                    # Create announcement for this extra class
-                    def format_time_12h(t):
-                        hour = t.hour
-                        minute = t.minute
-                        ampm = 'PM' if hour >= 12 else 'AM'
-                        hour12 = hour % 12 or 12
-                        return f"{hour12}:{minute:02d} {ampm}"
+                    if check_time_overlap(new_start, new_end, sched_start, sched_end):
+                        conflict_time = f"{format_time_12h(schedule.start_time)} - {format_time_12h(schedule.end_time)}"
+                        messages.error(
+                            request, 
+                            f'⚠️ Schedule Conflict: This time overlaps with a regular {day_of_week} class ({conflict_time}). Please choose a different time.'
+                        )
+                        return redirect('professor:class_detail', class_id=class_id)
+                
+                # Check for conflicts with other extra classes on the same date
+                existing_extras = ExtraClass.objects.filter(
+                    class_obj=class_obj,
+                    date=date_obj
+                )
+                
+                for extra in existing_extras:
+                    extra_start = time_to_minutes(extra.start_time)
+                    extra_end = time_to_minutes(extra.end_time)
                     
-                    formatted_date = date_obj.strftime('%B %d, %Y')
-                    time_range = f"{format_time_12h(start_time_obj)} - {format_time_12h(end_time_obj)}"
-                    announcement_title = f"Extra Class: {formatted_date} ({time_range})"
-                    announcement_content = reason if reason else "An extra class session has been scheduled."
-                    
-                    Announcement.objects.create(
-                        class_obj=class_obj,
-                        title=announcement_title,
-                        content=announcement_content
-                    )
-                    
-                    messages.success(request, 'Extra class added and announcement created!')
+                    if check_time_overlap(new_start, new_end, extra_start, extra_end):
+                        conflict_time = f"{format_time_12h(extra.start_time)} - {format_time_12h(extra.end_time)}"
+                        messages.error(
+                            request, 
+                            f'⚠️ Schedule Conflict: This time overlaps with another extra class on {date_obj.strftime("%B %d, %Y")} ({conflict_time}). Please choose a different time.'
+                        )
+                        return redirect('professor:class_detail', class_id=class_id)
+                
+                # No conflicts, create the extra class
+                extra = ExtraClass.objects.create(
+                    class_obj=class_obj,
+                    date=date_obj,
+                    start_time=start_time_obj,
+                    end_time=end_time_obj,
+                    reason=reason
+                )
+                
+                # Create announcement for this extra class
+                formatted_date = date_obj.strftime('%B %d, %Y')
+                time_range = f"{format_time_12h(start_time_obj)} - {format_time_12h(end_time_obj)}"
+                announcement_title = f"Extra Class: {formatted_date} ({time_range})"
+                announcement_content = reason if reason else "An extra class session has been scheduled."
+                
+                Announcement.objects.create(
+                    class_obj=class_obj,
+                    title=announcement_title,
+                    content=announcement_content
+                )
+                
+                messages.success(request, '✅ Extra class added and announcement created!')
             except ValueError as e:
-                messages.error(request, f'Invalid date or time format: {e}')
+                messages.error(request, f'⚠️ Invalid date or time format: {e}')
         else:
-            messages.error(request, 'Please fill in all required fields.')
+            messages.error(request, '⚠️ Please fill in all required fields.')
     
     return redirect('professor:class_detail', class_id=class_id)
 

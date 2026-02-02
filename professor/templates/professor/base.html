@@ -31,6 +31,10 @@
     document.addEventListener('DOMContentLoaded', function () {
         const messages = document.querySelector('.messages');
         if (!messages) return;
+        
+        // Longer timeout for error messages (8 sec) vs success messages (5 sec)
+        const hasError = messages.querySelector('[class*="error"], [class*="danger"]');
+        const timeout = hasError ? 8000 : 5000;
 
         setTimeout(function () {
             messages.style.transition = 'opacity 0.4s ease, transform 0.4s ease';
@@ -42,7 +46,7 @@
                     messages.parentNode.removeChild(messages);
                 }
             }, 400);
-        }, 5000);
+        }, timeout);
     });
     </script>
 
